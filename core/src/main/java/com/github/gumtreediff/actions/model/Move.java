@@ -22,15 +22,13 @@ package com.github.gumtreediff.actions.model;
 
 import com.github.gumtreediff.tree.ITree;
 
-public class Move extends Addition {
-
+public class Move extends TreeAddition {
     public Move(ITree node, ITree parent, int pos) {
         super(node, parent, pos);
     }
 
     @Override
     public String getName() {
-        return "MOV";
+        return "move-tree";
     }
-
 }

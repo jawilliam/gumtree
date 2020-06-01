@@ -21,8 +21,11 @@
 package com.github.gumtreediff.matchers;
 
 import com.github.gumtreediff.gen.Registry;
-import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.matchers.heuristic.LcsMatcher;
 
+/**
+ * Registry of matchers, using a singleton pattern.
+ */
 public class Matchers extends Registry<String, Matcher, Register> {
 
     private static Matchers registry;
@@ -36,9 +39,10 @@ public class Matchers extends Registry<String, Matcher, Register> {
 
     private Matchers() {
         install(CompositeMatchers.ClassicGumtree.class);
+        install(CompositeMatchers.SimpleGumtree.class);
         install(CompositeMatchers.ChangeDistiller.class);
         install(CompositeMatchers.XyMatcher.class);
-        install(CompositeMatchers.GumtreeTopDown.class);
+        install(LcsMatcher.class);
     }
 
     private void install(Class<? extends Matcher> clazz) {
@@ -46,16 +50,27 @@ public class Matchers extends Registry<String, Matcher, Register> {
         if (a == null)
             throw new RuntimeException("Expecting @Register annotation on " + clazz.getName());
         if (defaultMatcherFactory == null && a.defaultMatcher())
-            defaultMatcherFactory = defaultFactory(clazz, ITree.class, ITree.class, MappingStore.class);
+            defaultMatcherFactory = defaultFactory(clazz);
         install(clazz, a);
     }
 
-    public Matcher getMatcher(String id, ITree src, ITree dst) {
-        return get(id, src, dst, new MappingStore());
+    public Matcher getMatcher(String id) {
+        return get(id);
     }
 
-    public Matcher getMatcher(ITree src, ITree dst) {
-        return defaultMatcherFactory.instantiate(new Object[]{src, dst, new MappingStore()});
+    public Matcher getMatcherWithFallback(String id) {
+        if (id == null)
+            return getMatcher();
+
+        Matcher matcher = get(id);
+        if (matcher != null)
+            return matcher;
+        else
+            return getMatcher();
+    }
+
+    public Matcher getMatcher() {
+        return defaultMatcherFactory.instantiate(new Object[]{});
     }
 
     protected String getName(Register annotation, Class<? extends Matcher> clazz) {
@@ -65,7 +80,7 @@ public class Matchers extends Registry<String, Matcher, Register> {
     @Override
     protected Entry newEntry(Class<? extends Matcher> clazz, Register annotation) {
         return new Entry(annotation.id(), clazz,
-                defaultFactory(clazz, ITree.class, ITree.class, MappingStore.class), annotation.priority()) {
+                defaultFactory(clazz), annotation.priority()) {
 
             @Override
             protected boolean handle(String key) {

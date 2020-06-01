@@ -20,43 +20,44 @@
 
 package com.github.gumtreediff.matchers.heuristic.gt;
 
-import com.github.gumtreediff.utils.HungarianAlgorithm;
-import com.github.gumtreediff.matchers.MappingStore;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.matchers.MultiMappingStore;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.utils.HungarianAlgorithm;
 
-import java.util.*;
-
-public class HungarianSubtreeMatcher extends AbstractSubtreeMatcher {
-
-    public HungarianSubtreeMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
+public class HungarianSubtreeMatcher extends AbstractSubtreeMatcher implements Matcher {
 
     @Override
     public void filterMappings(MultiMappingStore multiMappings) {
         List<MultiMappingStore> ambiguousList = new ArrayList<>();
         Set<ITree> ignored = new HashSet<>();
-        for (ITree src: multiMappings.getSrcs())
+        for (ITree src : multiMappings.allMappedSrcs())
             if (multiMappings.isSrcUnique(src))
-                addMappingRecursively(src, multiMappings.getDst(src).iterator().next());
+                mappings.addMappingRecursively(src, multiMappings.getDsts(src).iterator().next());
             else if (!ignored.contains(src)) {
                 MultiMappingStore ambiguous = new MultiMappingStore();
-                Set<ITree> adsts = multiMappings.getDst(src);
-                Set<ITree> asrcs = multiMappings.getSrc(multiMappings.getDst(src).iterator().next());
+                Set<ITree> adsts = multiMappings.getDsts(src);
+                Set<ITree> asrcs = multiMappings.getSrcs(multiMappings.getDsts(src).iterator().next());
                 for (ITree asrc : asrcs)
-                    for (ITree adst: adsts)
-                        ambiguous.link(asrc ,adst);
+                    for (ITree adst : adsts)
+                        ambiguous.addMapping(asrc, adst);
                 ambiguousList.add(ambiguous);
                 ignored.addAll(asrcs);
             }
 
         Collections.sort(ambiguousList, new MultiMappingComparator());
 
-        for (MultiMappingStore ambiguous: ambiguousList) {
+        for (MultiMappingStore ambiguous : ambiguousList) {
             System.out.println("hungarian try.");
-            List<ITree> lstSrcs = new ArrayList<>(ambiguous.getSrcs());
-            List<ITree> lstDsts = new ArrayList<>(ambiguous.getDsts());
+            List<ITree> lstSrcs = new ArrayList<>(ambiguous.allMappedSrcs());
+            List<ITree> lstDsts = new ArrayList<>(ambiguous.allMappedDsts());
             double[][] matrix = new double[lstSrcs.size()][lstDsts.size()];
             for (int i = 0; i < lstSrcs.size(); i++)
                 for (int j = 0; j < lstDsts.size(); j++)
@@ -66,7 +67,8 @@ public class HungarianSubtreeMatcher extends AbstractSubtreeMatcher {
             int[] solutions = hgAlg.execute();
             for (int i = 0; i < solutions.length; i++) {
                 int dstIdx = solutions[i];
-                if (dstIdx != -1) addMappingRecursively(lstSrcs.get(i), lstDsts.get(dstIdx));
+                if (dstIdx != -1)
+                    mappings.addMappingRecursively(lstSrcs.get(i), lstDsts.get(dstIdx));
             }
         }
     }
@@ -84,17 +86,18 @@ public class HungarianSubtreeMatcher extends AbstractSubtreeMatcher {
 
         public int impact(MultiMappingStore m) {
             int impact = 0;
-            for (ITree src: m.getSrcs()) {
+            for (ITree src : m.allMappedSrcs()) {
                 int pSize = src.getParents().size();
-                if (pSize > impact) impact = pSize;
+                if (pSize > impact)
+                    impact = pSize;
             }
-            for (ITree src: m.getDsts()) {
+            for (ITree src : m.allMappedDsts()) {
                 int pSize = src.getParents().size();
-                if (pSize > impact) impact = pSize;
+                if (pSize > impact)
+                    impact = pSize;
             }
             return impact;
         }
-
     }
 
 }

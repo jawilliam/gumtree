@@ -31,10 +31,63 @@ public class TreeLoader {
 
     private TreeLoader() {}
 
+    /*
+     v0
+     --
+     a
+       e
+         f
+       b
+         c
+         d
+       g
+         h
+       i
+       j
+         k
+
+     v1
+     --
+     z
+       b
+         c
+         d
+       h
+         e
+           y
+       x
+         w
+       j
+         u
+           v
+             k
+     */
     public static Pair<TreeContext, TreeContext> getActionPair() {
         return new Pair<>(load("/action_v0.xml"), load("/action_v1.xml"));
     }
 
+    /*
+       v0
+       -
+       a
+         e
+           f
+         b
+           c
+           d
+         g
+
+       v1
+       -
+       z
+         b
+           c
+           d
+         h
+           e
+             y
+         g
+     */
     public static Pair<TreeContext, TreeContext> getGumtreePair() {
         return new Pair<>(load("/gumtree_v0.xml"), load("/gumtree_v1.xml"));
     }
@@ -54,7 +107,19 @@ public class TreeLoader {
     public static Pair<TreeContext, TreeContext> getCdCustomPair() {
         return new Pair<>(load("/cd_v0.xml"), load("/cd_v1.xml"));
     }
- 
+
+    public static Pair<ITree, ITree> getBottomUpPair() {
+        return new Pair<>(load("/bottom_up_v0.xml").getRoot(),
+                load("/bottom_up_v1.xml").getRoot());
+    }
+
+    /*
+     *  a
+     *    b
+     *      c
+     *      d
+     *    e
+     */
     public static ITree getDummySrc() {
         return load("/Dummy_v0.xml").getRoot();
     }
@@ -69,7 +134,7 @@ public class TreeLoader {
 
     public static TreeContext load(String name) {
         try {
-            return TreeIoUtils.fromXml().generateFromStream(System.class.getResourceAsStream(name));
+            return TreeIoUtils.fromXml().generateFrom().stream(TreeLoader.class.getResourceAsStream(name));
         } catch (IOException e) {
             throw new RuntimeException(String.format("Unable to load test ressorce: %s", name), e);
         }

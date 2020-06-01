@@ -20,20 +20,34 @@
 
 package com.github.gumtreediff.matchers.optimal.zs;
 
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.simmetrics.StringMetrics;
+
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.tree.ITree;
-import org.simmetrics.StringMetrics;
 
-import java.util.*;
+public class ZsMatcher implements Matcher {
 
-public class ZsMatcher extends Matcher {
-
+    private MappingStore mappings = null;
     private ZsTree zsSrc;
     private ZsTree zsDst;
 
     private double[][] treeDist;
     private double[][] forestDist;
+
+    @Override
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+        this.zsSrc = new ZsTree(src);
+        this.zsDst = new ZsTree(dst);
+        this.mappings = mappings;
+        this.match();
+        return mappings;
+    }
 
     private static ITree getFirstLeaf(ITree t) {
         ITree current = t;
@@ -43,23 +57,14 @@ public class ZsMatcher extends Matcher {
         return current;
     }
 
-    public ZsMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-        this.zsSrc = new ZsTree(src);
-        this.zsDst = new ZsTree(dst);
-    }
-
     private double[][] computeTreeDist() {
 
         treeDist = new double[zsSrc.nodeCount + 1][zsDst.nodeCount + 1];
         forestDist = new double[zsSrc.nodeCount + 1][zsDst.nodeCount + 1];
 
-        for (int i = 1; i < zsSrc.kr.length; i++) {
-            for (int j = 1; j < zsDst.kr.length; j++) {
+        for (int i = 1; i < zsSrc.kr.length; i++)
+            for (int j = 1; j < zsDst.kr.length; j++)
                 forestDist(zsSrc.kr[i], zsDst.kr[j]);
-
-            }
-        }
 
         return treeDist;
     }
@@ -67,7 +72,7 @@ public class ZsMatcher extends Matcher {
     private void forestDist(int i, int j) {
         forestDist[zsSrc.lld(i) - 1][zsDst.lld(j) - 1] = 0;
         for (int di = zsSrc.lld(i); di <= i; di++) {
-            double costDel =  getDeletionCost(zsSrc.tree(di));
+            double costDel = getDeletionCost(zsSrc.tree(di));
             forestDist[di][zsDst.lld(j) - 1] = forestDist[di - 1][zsDst.lld(j) - 1] + costDel;
             for (int dj = zsDst.lld(j); dj <= j; dj++) {
                 double costIns = getInsertionCost(zsDst.tree(dj));
@@ -75,21 +80,19 @@ public class ZsMatcher extends Matcher {
 
                 if ((zsSrc.lld(di) == zsSrc.lld(i) && (zsDst.lld(dj) == zsDst.lld(j)))) {
                     double costUpd = getUpdateCost(zsSrc.tree(di), zsDst.tree(dj));
-                    forestDist[di][dj] = Math.min(Math.min(forestDist[di - 1][dj] + costDel,
-                                    forestDist[di][dj - 1] + costIns),
+                    forestDist[di][dj] = Math.min(
+                            Math.min(forestDist[di - 1][dj] + costDel, forestDist[di][dj - 1] + costIns),
                             forestDist[di - 1][dj - 1] + costUpd);
                     treeDist[di][dj] = forestDist[di][dj];
                 } else {
-                    forestDist[di][dj] = Math.min(Math.min(forestDist[di - 1][dj] + costDel,
-                                    forestDist[di][dj - 1] + costIns),
-                            forestDist[zsSrc.lld(di) - 1][zsDst.lld(dj) - 1]
-                                    + treeDist[di][dj]);
+                    forestDist[di][dj] = Math.min(
+                            Math.min(forestDist[di - 1][dj] + costDel, forestDist[di][dj - 1] + costIns),
+                            forestDist[zsSrc.lld(di) - 1][zsDst.lld(dj) - 1] + treeDist[di][dj]);
                 }
             }
         }
     }
 
-    @Override
     public void match() {
         computeTreeDist();
 
@@ -98,7 +101,7 @@ public class ZsMatcher extends Matcher {
         ArrayDeque<int[]> treePairs = new ArrayDeque<>();
 
         // push the pair of trees (ted1,ted2) to stack
-        treePairs.addFirst(new int[] { zsSrc.nodeCount, zsDst.nodeCount });
+        treePairs.addFirst(new int[] {zsSrc.nodeCount, zsDst.nodeCount});
 
         while (!treePairs.isEmpty()) {
             int[] treePair = treePairs.removeFirst();
@@ -120,12 +123,10 @@ public class ZsMatcher extends Matcher {
             int col = lastCol;
 
             while ((row > firstRow) || (col > firstCol)) {
-                if ((row > firstRow)
-                        && (forestDist[row - 1][col] + 1D == forestDist[row][col])) {
+                if ((row > firstRow) && (forestDist[row - 1][col] + 1D == forestDist[row][col])) {
                     // node with postorderID row is deleted from ted1
                     row--;
-                } else if ((col > firstCol)
-                        && (forestDist[row][col - 1] + 1D == forestDist[row][col])) {
+                } else if ((col > firstCol) && (forestDist[row][col - 1] + 1D == forestDist[row][col])) {
                     // node with postorderID col is inserted into ted2
                     col--;
                 } else {
@@ -137,14 +138,14 @@ public class ZsMatcher extends Matcher {
                         ITree tSrc = zsSrc.tree(row);
                         ITree tDst = zsDst.tree(col);
                         if (tSrc.getType() == tDst.getType())
-                            addMapping(tSrc, tDst);
+                            mappings.addMapping(tSrc, tDst);
                         else
                             throw new RuntimeException("Should not map incompatible nodes.");
                         row--;
                         col--;
                     } else {
                         // pop subtree pair
-                        treePairs.addFirst(new int[] { row, col });
+                        treePairs.addFirst(new int[] {row, col});
                         // continue with forest to the left of the popped
                         // subtree pair
 
@@ -175,9 +176,6 @@ public class ZsMatcher extends Matcher {
     }
 
     private static final class ZsTree {
-
-        private int start; // internal array position of leafmost leaf descendant of the root node
-
         private int nodeCount; // number of nodes
 
         private int leafCount;
@@ -189,18 +187,17 @@ public class ZsMatcher extends Matcher {
         private int[] kr;
 
         private ZsTree(ITree t) {
-            this.start = 0;
-            this.nodeCount = t.getSize();
+            this.nodeCount = t.getMetrics().size;
             this.leafCount = 0;
-            this.llds = new int[start + nodeCount];
-            this.labels = new ITree[start + nodeCount];
+            this.llds = new int[nodeCount];
+            this.labels = new ITree[nodeCount];
 
             int idx = 1;
-            Map<ITree,Integer> tmpData = new HashMap<>();
-            for (ITree n: t.postOrder()) {
+            Map<ITree, Integer> tmpData = new HashMap<>();
+            for (ITree n : t.postOrder()) {
                 tmpData.put(n, idx);
                 this.setITree(idx, n);
-                this.setLld(idx,  tmpData.get(ZsMatcher.getFirstLeaf(n)));
+                this.setLld(idx, tmpData.get(getFirstLeaf(n)));
                 if (n.isLeaf())
                     leafCount++;
                 idx++;
@@ -210,13 +207,13 @@ public class ZsMatcher extends Matcher {
         }
 
         public void setITree(int i, ITree tree) {
-            labels[i + start - 1] = tree;
+            labels[i - 1] = tree;
             if (nodeCount < i)
                 nodeCount = i;
         }
 
         public void setLld(int i, int lld) {
-            llds[i + start - 1] = lld + start - 1;
+            llds[i - 1] = lld - 1;
             if (nodeCount < i)
                 nodeCount = i;
         }
@@ -226,11 +223,11 @@ public class ZsMatcher extends Matcher {
         }
 
         public int lld(int i) {
-            return llds[i + start - 1] - start + 1;
+            return llds[i - 1] + 1;
         }
 
         public ITree tree(int i) {
-            return labels[i + start - 1];
+            return labels[i - 1];
         }
 
         public void setKeyRoots() {

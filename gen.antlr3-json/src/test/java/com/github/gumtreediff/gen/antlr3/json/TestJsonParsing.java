@@ -20,23 +20,26 @@
 
 package com.github.gumtreediff.gen.antlr3.json;
 
-import static org.junit.Assert.*;
+import static com.github.gumtreediff.tree.TypeSet.type;
+import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.InputStreamReader;
+import com.github.gumtreediff.matchers.CompositeMatchers;
+import com.github.gumtreediff.matchers.Matcher;
+import com.github.gumtreediff.tree.*;
+import org.junit.jupiter.api.Test;
 
-import com.github.gumtreediff.tree.ITree;
-import com.github.gumtreediff.tree.TreeContext;
-import org.junit.Test;
+import java.io.IOException;
 
 public class TestJsonParsing {
+    public static final Type ARRAY = type(JSONParser.tokenNames[JSONParser.ARRAY]);
 
     @Test
     public void testJsonParsing() throws Exception {
-        TreeContext tc = new AntlrJsonTreeGenerator().generateFromReader(
-                new InputStreamReader(getClass().getResourceAsStream("/sample.json"), "UTF-8"));
+        TreeContext tc = new AntlrJsonTreeGenerator().generateFrom().charset("UTF-8")
+                .stream(getClass().getResourceAsStream("/sample.json"));
         ITree tree = tc.getRoot();
-        assertEquals(4, tree.getType());
-        assertEquals(37, tree.getSize());
-    }
 
+        assertEquals(ARRAY, tree.getType());
+        assertEquals(37, tree.getMetrics().size);
+    }
 }

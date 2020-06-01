@@ -20,12 +20,14 @@
 
 package com.github.gumtreediff.gen.jdt;
 
-import com.github.gumtreediff.gen.TreeGenerator;
-import com.github.gumtreediff.tree.TreeContext;
+import com.github.gumtreediff.gen.SyntaxException;
 import com.github.gumtreediff.gen.TreeGenerator;
 import com.github.gumtreediff.tree.TreeContext;
 import org.eclipse.jdt.core.JavaCore;
+import org.eclipse.jdt.core.ToolFactory;
+import org.eclipse.jdt.core.compiler.IScanner;
 import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTParser;
 
 import java.io.BufferedReader;
@@ -52,19 +54,25 @@ public abstract class AbstractJdtTreeGenerator extends TreeGenerator {
     @Override
     @SuppressWarnings({ "unchecked", "rawtypes" })
     public TreeContext generate(Reader r) throws IOException {
-        ASTParser parser = ASTParser.newParser(AST.JLS9);
+        ASTParser parser = ASTParser.newParser(AST.JLS11);
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
         Map pOptions = JavaCore.getOptions();
-        pOptions.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_9);
-        pOptions.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_9);
-        pOptions.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_9);
+        pOptions.put(JavaCore.COMPILER_COMPLIANCE, JavaCore.VERSION_11);
+        pOptions.put(JavaCore.COMPILER_CODEGEN_TARGET_PLATFORM, JavaCore.VERSION_11);
+        pOptions.put(JavaCore.COMPILER_SOURCE, JavaCore.VERSION_11);
         pOptions.put(JavaCore.COMPILER_DOC_COMMENT_SUPPORT, JavaCore.ENABLED);
         parser.setCompilerOptions(pOptions);
-        parser.setSource(readerToCharArray(r));
-        AbstractJdtVisitor v = createVisitor();
-        parser.createAST(null).accept(v);
+        char[] source = readerToCharArray(r);
+        parser.setSource(source);
+        IScanner scanner = ToolFactory.createScanner(false, false, false, false);
+        scanner.setSource(source);
+        AbstractJdtVisitor v = createVisitor(scanner);
+        ASTNode node = parser.createAST(null);
+        if ((node.getFlags() & ASTNode.MALFORMED) != 0) // bitwise flag to check if the node has a syntax error
+            throw new SyntaxException(this, r);
+        node.accept(v);
         return v.getTreeContext();
     }
 
-    protected abstract AbstractJdtVisitor createVisitor();
+    protected abstract AbstractJdtVisitor createVisitor(IScanner scanner);
 }

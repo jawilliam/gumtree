@@ -20,38 +20,41 @@
 
 package com.github.gumtreediff.matchers.heuristic.gt;
 
-import com.github.gumtreediff.matchers.MappingStore;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import com.github.gumtreediff.matchers.Mapping;
 import com.github.gumtreediff.matchers.MultiMappingStore;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.utils.Pair;
-import com.github.gumtreediff.matchers.Mapping;
+
 import gnu.trove.map.hash.TIntObjectHashMap;
 
-import java.util.*;
-
 public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
-
-    public CliqueSubtreeMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
 
     @Override
     public void filterMappings(MultiMappingStore multiMappings) {
         TIntObjectHashMap<Pair<List<ITree>, List<ITree>>> cliques = new TIntObjectHashMap<>();
         for (Mapping m : multiMappings) {
-            int hash = m.getFirst().getHash();
+            int hash = m.first.getMetrics().hash;
             if (!cliques.containsKey(hash))
                 cliques.put(hash, new Pair<>(new ArrayList<>(), new ArrayList<>()));
-            cliques.get(hash).getFirst().add(m.getFirst());
-            cliques.get(hash).getSecond().add(m.getSecond());
+            cliques.get(hash).first.add(m.first);
+            cliques.get(hash).second.add(m.second);
         }
 
         List<Pair<List<ITree>, List<ITree>>> ccliques = new ArrayList<>();
 
         for (int hash : cliques.keys()) {
             Pair<List<ITree>, List<ITree>> clique = cliques.get(hash);
-            if (clique.getFirst().size() == 1 && clique.getSecond().size() == 1) {
-                addMappingRecursively(clique.getFirst().get(0), clique.getSecond().get(0));
+            if (clique.first.size() == 1 && clique.second.size() == 1) {
+                mappings.addMappingRecursively(clique.first.get(0), clique.second.get(0));
                 cliques.remove(hash);
             } else
                 ccliques.add(clique);
@@ -70,17 +73,16 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
 
     private List<Mapping> fromClique(Pair<List<ITree>, List<ITree>> clique) {
         List<Mapping> cliqueAsMappings = new ArrayList<Mapping>();
-        for (ITree src: clique.getFirst())
-            for (ITree dst: clique.getFirst())
+        for (ITree src : clique.first)
+            for (ITree dst : clique.first)
                 cliqueAsMappings.add(new Mapping(src, dst));
         return cliqueAsMappings;
     }
 
-    private static class CliqueComparator implements Comparator<Pair<List<ITree>, List<ITree>>> {
+    private class CliqueComparator implements Comparator<Pair<List<ITree>, List<ITree>>> {
 
         @Override
-        public int compare(Pair<List<ITree>, List<ITree>> l1,
-                           Pair<List<ITree>, List<ITree>> l2) {
+        public int compare(Pair<List<ITree>, List<ITree>> l1, Pair<List<ITree>, List<ITree>> l2) {
             int minDepth1 = minDepth(l1);
             int minDepth2 = minDepth(l2);
             if (minDepth1 != minDepth2)
@@ -94,17 +96,17 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
 
         private int minDepth(Pair<List<ITree>, List<ITree>> trees) {
             int depth = Integer.MAX_VALUE;
-            for (ITree t : trees.getFirst())
-                if (depth > t.getDepth())
-                    depth = t.getDepth();
-            for (ITree t : trees.getSecond())
-                if (depth > t.getDepth())
-                    depth = t.getDepth();
+            for (ITree t : trees.first)
+                if (depth > t.getMetrics().depth)
+                    depth = t.getMetrics().depth;
+            for (ITree t : trees.second)
+                if (depth > t.getMetrics().depth)
+                    depth = t.getMetrics().depth;
             return depth;
         }
 
         private int size(Pair<List<ITree>, List<ITree>> trees) {
-            return trees.getFirst().size() + trees.getSecond().size();
+            return trees.first.size() + trees.second.size();
         }
 
     }
@@ -114,8 +116,8 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
         private Map<Mapping, double[]> simMap = new HashMap<>();
 
         public MappingComparator(List<Mapping> mappings) {
-            for (Mapping mapping: mappings)
-                simMap.put(mapping, sims(mapping.getFirst(), mapping.getSecond()));
+            for (Mapping mapping : mappings)
+                simMap.put(mapping, sims(mapping.first, mapping.second));
         }
 
         @Override
@@ -141,9 +143,10 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
 
             int common = 0;
 
-            for (ITree t: srcDescendants.get(src)) {
-                ITree m = mappings.getDst(t);
-                if (m != null && dstDescendants.get(dst).contains(m)) common++;
+            for (ITree t : srcDescendants.get(src)) {
+                ITree m = mappings.getDstForSrc(t);
+                if (m != null && dstDescendants.get(dst).contains(m))
+                    common++;
             }
 
             return common;
@@ -153,8 +156,8 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
             double[] sims = new double[4];
             sims[0] = jaccardSimilarity(src.getParent(), dst.getParent());
             sims[1] = src.positionInParent() - dst.positionInParent();
-            sims[2] = src.getId() - dst.getId();
-            sims[3] = src.getId();
+            sims[2] = src.getMetrics().position - dst.getMetrics().position;
+            sims[3] = src.getMetrics().position;
             return sims;
         }
 
@@ -163,6 +166,6 @@ public class CliqueSubtreeMatcher extends AbstractSubtreeMatcher {
             double den = (double) srcDescendants.get(src).size() + (double) dstDescendants.get(dst).size() - num;
             return num / den;
         }
-
     }
+
 }

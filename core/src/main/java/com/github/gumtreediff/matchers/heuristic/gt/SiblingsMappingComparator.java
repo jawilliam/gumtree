@@ -31,10 +31,11 @@ public final class SiblingsMappingComparator extends AbstractMappingComparator {
 
     private Map<ITree, Set<ITree>> dstDescendants = new HashMap<>();
 
-    public SiblingsMappingComparator(List<Mapping> ambiguousMappings, MappingStore mappings, int maxTreeSize) {
+    public SiblingsMappingComparator(List<Mapping> ambiguousMappings, MappingStore mappings,
+                                     int maxTreeSize) {
         super(ambiguousMappings, mappings, maxTreeSize);
         for (Mapping ambiguousMapping: ambiguousMappings)
-            similarities.put(ambiguousMapping, similarity(ambiguousMapping.getFirst(), ambiguousMapping.getSecond()));
+            similarities.put(ambiguousMapping, similarity(ambiguousMapping.first, ambiguousMapping.second));
     }
 
     @Override
@@ -58,7 +59,7 @@ public final class SiblingsMappingComparator extends AbstractMappingComparator {
         int common = 0;
 
         for (ITree t: srcDescendants.get(src)) {
-            ITree m = mappings.getDst(t);
+            ITree m = mappings.getDstForSrc(t);
             if (m != null && dstDescendants.get(dst).contains(m))
                 common++;
         }

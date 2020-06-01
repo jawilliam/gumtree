@@ -1,6 +1,5 @@
 
 plugins {
-    id 'net.ltgt.errorprone' version '0.0.13'
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.6.3'
 }
@@ -8,8 +7,9 @@ plugins {
 allprojects {
     apply plugin: 'idea'
 
-    group = 'com.github.gumtreediff'
-    version = '2.1.2-SNAPSHOT'
+    group = 'com.github.gumt' +
+            'reediff'
+    version = '3.0.0-beta1-SNAPSHOT'
 
     repositories {
         mavenCentral()
@@ -21,14 +21,16 @@ ext.isRelease = !project.version.endsWith("SNAPSHOT")
 
 subprojects {
     apply plugin: 'java'
-    sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
+    sourceCompatibility = '1.9'
+    targetCompatibility = '1.9'
 
-    apply plugin: "net.ltgt.errorprone"
+    compileJava {
+        options.compilerArgs << '-Xlint:deprecation'
+    }
 
     apply plugin: 'checkstyle'
     checkstyle {
-        toolVersion = '8.8'
+        toolVersion = '8.18'
         configFile = rootProject.file('gumtree_checkstyle.xml')
         configProperties = [suppressionFile: "${rootProject.file('checkstyle_ignore.xml')}"]
         ignoreFailures = false
@@ -36,19 +38,26 @@ subprojects {
     }
 
     dependencies {
-        testCompile 'junit:junit:[4,5)'
+        annotationProcessor 'org.atteo.classindex:classindex:3.8'
+        implementation 'org.atteo.classindex:classindex:3.8'
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.4.2'
+        testImplementation 'org.hamcrest:hamcrest-library:2.1'
+
     }
 
     test {
+        useJUnitPlatform()
+
         testLogging {
             exceptionFormat = 'full'
+            events "passed", "skipped", "failed"
         }
     }
 }
 
 configure(subprojects.findAll { it.name != 'core' }) {
     dependencies {
-        compile project(':core')
+        implementation project(':core')
     }
 }
 
@@ -61,7 +70,7 @@ configure(subprojects.findAll { it.name.startsWith('gen.antlr3') }) {
 
     if (it.name.startsWith('gen.antlr3-')) {
         dependencies {
-            compile project(':gen.antlr3')
+            implementation project(':gen.antlr3')
         }
     }
 }
@@ -75,7 +84,7 @@ configure(subprojects.findAll { it.name.startsWith('gen.antlr4') }) {
 
     if (it.name.startsWith('gen.antlr4-')) {
         dependencies {
-            compile project(':gen.antlr4')
+            implementation project(':gen.antlr4')
         }
     }
 }
@@ -85,7 +94,7 @@ def jacocoProjects = subprojects.findAll { it.name in jacocoProjectsNames }
 configure(jacocoProjects) {
     apply plugin: 'jacoco'
     jacoco {
-        toolVersion = '0.7.7.201606060606'
+        toolVersion = '0.8.5'
     }
 
     jacocoTestReport {
@@ -101,10 +110,10 @@ task jacocoRootReport(type: JacocoReport, group: 'Coverage reports') {
     description = 'Generates an aggregate report from all subprojects'
     dependsOn(jacocoProjects.test)
 
-    additionalSourceDirs = files(jacocoProjects.sourceSets.main.allSource.srcDirs)
-    sourceDirectories = files(jacocoProjects.sourceSets.main.allSource.srcDirs)
-    classDirectories = files(jacocoProjects.sourceSets.main.output)
-    executionData = files(jacocoProjects.jacocoTestReport.executionData)
+    getAdditionalSourceDirs().from = files(jacocoProjects.sourceSets.main.allSource.srcDirs)
+    getSourceDirectories().from = files(jacocoProjects.sourceSets.main.allSource.srcDirs)
+    getClassDirectories().from = files(jacocoProjects.sourceSets.main.output)
+    getExecutionData().from = files(jacocoProjects.jacocoTestReport.executionData)
 
     reports {
         html.enabled = true
@@ -125,7 +134,7 @@ tasks.coveralls {
     onlyIf { System.env.'CI' && !JavaVersion.current().isJava9Compatible() }
 }
 
-evaluationDependsOnChildren();
+evaluationDependsOnChildren()
 
 configure(subprojects) {
     if (project.hasProperty('skipNative') && it.hasProperty('isNative') && it.isNative == true)

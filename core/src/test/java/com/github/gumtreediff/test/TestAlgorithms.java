@@ -20,12 +20,14 @@
 package com.github.gumtreediff.test;
 
 import com.github.gumtreediff.utils.HungarianAlgorithm;
-import com.github.gumtreediff.utils.StringAlgorithms;
-import org.junit.Test;
-import static org.junit.Assert.assertThat;
-import static org.hamcrest.CoreMatchers.*;
+import com.github.gumtreediff.utils.SequenceAlgorithms;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
+
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TestAlgorithms {
 
@@ -33,7 +35,7 @@ public class TestAlgorithms {
     public void testLcss() {
         // Exemple coming from:
         // http://www.geeksforgeeks.org/dynamic-programming-set-4-longest-common-subsequence/
-        List<int[]> indexes = StringAlgorithms.lcss("ABCDGH", "AEDFHR");
+        List<int[]> indexes = SequenceAlgorithms.longestCommonSubsequence("ABCDGH", "AEDFHR");
         assertThat(indexes.size(), is(3));
         assertThat(indexes, hasItem(new int[] {0, 0}));
         assertThat(indexes, hasItem(new int[] {3, 2}));
@@ -42,7 +44,7 @@ public class TestAlgorithms {
 
     @Test
     public void testLcs() {
-        String lcs = StringAlgorithms.lcs("FUTUR", "CHUTE");
+        String lcs = SequenceAlgorithms.longestCommonSequence("FUTUR", "CHUTE");
         assertThat(lcs, is("UT"));
     }
 
@@ -59,5 +61,4 @@ public class TestAlgorithms {
         assertThat(result[1], is(1));
         assertThat(result[2], is(2));
     }
-
 }

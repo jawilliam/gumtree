@@ -19,52 +19,45 @@
  */
 package com.github.gumtreediff.matchers.optimizations;
 
-import com.github.gumtreediff.matchers.Mapping;
-import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.matchers.Matcher;
-import com.github.gumtreediff.tree.ITree;
-
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
 
-/**
- * This implements the unmapped leaves optimization (Theta C), the inner node repair optimization
- * (Theta D) and the leaf move optimization (Theta E).
- *
- */
-public class InnerNodesMatcherThetaD extends Matcher {
+import com.github.gumtreediff.matchers.Mapping;
+import com.github.gumtreediff.matchers.MappingStore;
+import com.github.gumtreediff.matchers.Matcher;
+import com.github.gumtreediff.tree.ITree;
 
-    private class ChangeMapComparator
-            implements Comparator<Entry<ITree, IdentityHashMap<ITree, Integer>>> {
+/**
+ * This implements the unmapped leaves optimization (Theta C), the inner node
+ * repair optimization (Theta D) and the leaf move optimization (Theta E).
+ */
+public class InnerNodesMatcherThetaD implements Matcher {
+
+    private ITree src;
+    private ITree dst;
+    private MappingStore mappings;
+
+    @Override
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+        this.src = src;
+        this.dst = dst;
+        this.mappings = mappings;
+        thetaD();
+        return mappings;
+    }
+
+    private class ChangeMapComparator implements Comparator<Entry<ITree, IdentityHashMap<ITree, Integer>>> {
 
         @Override
         public int compare(Entry<ITree, IdentityHashMap<ITree, Integer>> o1,
-                Entry<ITree, IdentityHashMap<ITree, Integer>> o2) {
+                           Entry<ITree, IdentityHashMap<ITree, Integer>> o2) {
 
-            return Integer.compare(o1.getKey().getId(), o2.getKey().getId());
+            return Integer.compare(o1.getKey().getMetrics().position, o2.getKey().getMetrics().position);
         }
 
-    }
-
-    /**
-     * Instantiates a new matcher for Theta A-E.
-     *
-     * @param src the src
-     * @param dst the dst
-     * @param store the store
-     */
-    public InnerNodesMatcherThetaD(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
-
-    @Override
-    protected void addMapping(ITree src, ITree dst) {
-        assert (src != null);
-        assert (dst != null);
-        super.addMapping(src, dst);
     }
 
     private boolean allowedMatching(ITree key, ITree maxNodePartner) {
@@ -76,19 +69,9 @@ public class InnerNodesMatcherThetaD extends Matcher {
         }
         return true;
     }
-
-
-    /**
-     * Match.
-     */
-    @Override
-    public void match() {
-        thetaD();
-    }
-
+    
     private void thetaD() {
-        IdentityHashMap<ITree, IdentityHashMap<ITree, Integer>> parentCount =
-                new IdentityHashMap<>();
+        IdentityHashMap<ITree, IdentityHashMap<ITree, Integer>> parentCount = new IdentityHashMap<>();
         for (Mapping pair : mappings.asSet()) {
             ITree parent = pair.first.getParent();
             ITree parentPartner = pair.second.getParent();
@@ -100,14 +83,13 @@ public class InnerNodesMatcherThetaD extends Matcher {
                 }
                 Integer count = countMap.get(parentPartner);
                 if (count == null) {
-                    count = new Integer(0);
+                    count = Integer.valueOf(0);
                 }
                 countMap.put(parentPartner, count + 1);
             }
         }
 
-        LinkedList<Entry<ITree, IdentityHashMap<ITree, Integer>>> list =
-                new LinkedList<>(parentCount.entrySet());
+        LinkedList<Entry<ITree, IdentityHashMap<ITree, Integer>>> list = new LinkedList<>(parentCount.entrySet());
         Collections.sort(list, new ChangeMapComparator());
 
         for (Entry<ITree, IdentityHashMap<ITree, Integer>> countEntry : list) {
@@ -124,14 +106,13 @@ public class InnerNodesMatcherThetaD extends Matcher {
                 }
             }
             if (maxCount == 1) {
-                if (mappings.getDst(countEntry.getKey()) != null
-                        && mappings.getSrc(maxNode) != null) {
-                    ITree partner = mappings.getDst(countEntry.getKey());
-                    ITree maxNodePartner = mappings.getSrc(maxNode);
+                if (mappings.getDstForSrc(countEntry.getKey()) != null && mappings.getSrcForDst(maxNode) != null) {
+                    ITree partner = mappings.getDstForSrc(countEntry.getKey());
+                    ITree maxNodePartner = mappings.getSrcForDst(maxNode);
                     if (partner != maxNode) {
                         if (max > countEntry.getKey().getChildren().size() / 2
                                 || countEntry.getKey().getChildren().size() == 1) {
-                            ITree parentPartner = mappings.getDst(countEntry.getKey().getParent());
+                            ITree parentPartner = mappings.getDstForSrc(countEntry.getKey().getParent());
 
                             if (parentPartner != null && parentPartner == partner.getParent()) {
                                 continue;
@@ -139,16 +120,16 @@ public class InnerNodesMatcherThetaD extends Matcher {
                             if (allowedMatching(countEntry.getKey(), maxNodePartner)) {
                                 if (countEntry.getKey().getType() == maxNode.getType()) {
                                     if (maxNodePartner != null) {
-                                        mappings.unlink(maxNodePartner, maxNode);
+                                        mappings.removeMapping(maxNodePartner, maxNode);
                                     }
                                     if (partner != null) {
-                                        mappings.unlink(countEntry.getKey(), partner);
+                                        mappings.removeMapping(countEntry.getKey(), partner);
                                     }
-                                    addMapping(countEntry.getKey(), maxNode);
+                                    mappings.addMapping(countEntry.getKey(), maxNode);
                                 }
                                 if (maxNodePartner != null) {
                                     if (maxNodePartner.getType() == partner.getType()) {
-                                        addMapping(maxNodePartner, partner);
+                                        mappings.addMapping(maxNodePartner, partner);
                                     }
                                 }
                             }

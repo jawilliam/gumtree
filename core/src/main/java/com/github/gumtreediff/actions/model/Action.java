@@ -25,7 +25,6 @@ import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
 
 public abstract class Action {
-
     protected ITree node;
 
     public Action(ITree node) {
@@ -42,9 +41,14 @@ public abstract class Action {
 
     public abstract String getName();
 
-    @Override
-    public abstract String toString();
+    public boolean equals(Object o) {
+        if (o == this)
+            return true;
+        if (o == null)
+            return false;
+        if (o.getClass() != this.getClass())
+            return false;
 
-    public abstract String format(TreeContext ctx);
-
+        return node == ((Action) o).node;
+    }
 }

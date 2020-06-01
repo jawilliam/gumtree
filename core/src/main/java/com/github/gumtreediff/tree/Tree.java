@@ -27,7 +27,7 @@ import java.util.Map.Entry;
 
 public class Tree extends AbstractTree implements ITree {
 
-    private int type;
+    private Type type;
 
     private String label;
 
@@ -40,61 +40,39 @@ public class Tree extends AbstractTree implements ITree {
 
     /**
      * Constructs a new node. If you need type labels corresponding to the integer
-     * @see TreeContext#createTree(int, String, String)
+     * @see TreeContext#createTree(Type, String)
      */
-    public Tree(int type, String label) {
+    public Tree(Type type) {
+        this(type, NO_LABEL);
+    }
+
+    /**
+     * Constructs a new node. If you need type labels corresponding to the integer
+     * @see TreeContext#createTree(Type, String)
+     */
+    public Tree(Type type, String label) {
         this.type = type;
         this.label = (label == null) ? NO_LABEL : label.intern();
-        this.id = NO_ID;
-        this.depth = NO_VALUE;
-        this.hash = NO_VALUE;
-        this.height = NO_VALUE;
-        this.depth = NO_VALUE;
-        this.size = NO_VALUE;
-        this.pos = NO_VALUE;
-        this.length = NO_VALUE;
         this.children = new ArrayList<>();
     }
 
-    // Only used for cloning ...
-    protected Tree(Tree other) {
-        this.type = other.type;
+    /**
+     * Copy constructor for copy.
+     */
+    protected Tree(ITree other) {
+        this.type = other.getType();
         this.label = other.getLabel();
-        this.id = other.getId();
         this.pos = other.getPos();
         this.length = other.getLength();
-        this.height = other.getHeight();
-        this.size = other.getSize();
-        this.depth = other.getDepth();
-        this.hash = other.getHash();
-        this.depth = other.getDepth();
         this.children = new ArrayList<>();
-        this.metadata = other.metadata;
     }
 
     @Override
-    public void addChild(ITree t) {
-        children.add(t);
-        t.setParent(this);
-    }
-
-    @Override
-    public void insertChild(ITree t, int position) {
-        children.add(position, t);
-        t.setParent(this);
-    }
-
-    @Override
-    public Tree deepCopy() {
-        Tree copy = new Tree(this);
+    public ITree deepCopy() {
+        ITree copy = new Tree(this);
         for (ITree child : getChildren())
             copy.addChild(child.deepCopy());
         return copy;
-    }
-
-    @Override
-    public List<ITree> getChildren() {
-        return children;
     }
 
     @Override
@@ -108,25 +86,13 @@ public class Tree extends AbstractTree implements ITree {
     }
 
     @Override
-    public ITree getParent() {
-        return parent;
-    }
-
-    @Override
     public int getPos() {
         return pos;
     }
 
     @Override
-    public int getType() {
+    public Type getType() {
         return type;
-    }
-
-    @Override
-    public void setChildren(List<ITree> children) {
-        this.children = children;
-        for (ITree c : children)
-            c.setParent(this);
     }
 
     @Override
@@ -140,26 +106,12 @@ public class Tree extends AbstractTree implements ITree {
     }
 
     @Override
-    public void setParent(ITree parent) {
-        this.parent = parent;
-    }
-
-    @Override
-    public void setParentAndUpdateChildren(ITree parent) {
-        if (this.parent != null)
-            this.parent.getChildren().remove(this);
-        this.parent = parent;
-        if (this.parent != null)
-            parent.getChildren().add(this);
-    }
-
-    @Override
     public void setPos(int pos) {
         this.pos = pos;
     }
 
     @Override
-    public void setType(int type) {
+    public void setType(Type type) {
         this.type = type;
     }
 

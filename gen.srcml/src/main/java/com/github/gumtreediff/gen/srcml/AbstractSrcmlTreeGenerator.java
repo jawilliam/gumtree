@@ -19,9 +19,10 @@
 
 package com.github.gumtreediff.gen.srcml;
 
-import com.github.gumtreediff.gen.TreeGenerator;
+import com.github.gumtreediff.gen.ExternalProcessTreeGenerator;
 import com.github.gumtreediff.io.LineReader;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.Type;
 import com.github.gumtreediff.tree.TreeContext;
 
 import javax.xml.namespace.QName;
@@ -29,12 +30,11 @@ import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.events.*;
 import java.io.*;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
-public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
+import static com.github.gumtreediff.tree.TypeSet.type;
+
+public abstract class AbstractSrcmlTreeGenerator extends ExternalProcessTreeGenerator {
 
     private static final String SRCML_CMD = System.getProperty("gt.srcml.path", "srcml");
 
@@ -44,8 +44,15 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
 
     private LineReader lr;
 
-    private Set<String> labeled = new HashSet<String>(
-            Arrays.asList("specifier", "name", "comment", "literal", "operator"));
+    private Set<Type> labeled = new HashSet<>(
+            Arrays.asList(
+                    type("specifier"),
+                    type("name"),
+                    type("comment"),
+                    type("literal"),
+                    type("operator")));
+
+    Type position = type("position");
 
     private StringBuilder currentLabel;
 
@@ -54,8 +61,8 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
     @Override
     public TreeContext generate(Reader r) throws IOException {
         lr = new LineReader(r);
-        String xml = getXml(lr);
-        return getTreeContext(xml);
+        String output = readStandardOutput(lr);
+        return getTreeContext(output);
     }
 
     public TreeContext getTreeContext(String xml) {
@@ -69,12 +76,11 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
                 XMLEvent ev = r.nextEvent();
                 if (ev.isStartElement()) {
                     StartElement s = ev.asStartElement();
-                    String typeLabel = s.getName().getLocalPart();
-                    if (typeLabel.equals("position"))
+                    Type type = type(s.getName().getLocalPart());
+                    if (type.equals(position))
                         setLength(trees.peekFirst(), s);
                     else {
-                        int type = typeLabel.hashCode();
-                        ITree t = context.createTree(type, "", typeLabel);
+                        ITree t = context.createTree(type, "");
 
                         if (trees.isEmpty()) {
                             context.setRoot(t);
@@ -87,7 +93,7 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
                     }
                 } else if (ev.isEndElement()) {
                     EndElement end = ev.asEndElement();
-                    if (!end.getName().getLocalPart().equals("position")) {
+                    if (type(end.getName().getLocalPart()) != position) {
                         if (isLabeled(trees))
                             trees.peekFirst().setLabel(currentLabel.toString());
                         trees.removeFirst();
@@ -100,7 +106,6 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
                 }
             }
             fixPos(context);
-            context.validate();
             return context;
         } catch (Exception e) {
             e.printStackTrace();
@@ -109,13 +114,13 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
     }
 
     private boolean isLabeled(ArrayDeque<ITree> trees) {
-        return labeled.contains(context.getTypeLabel(trees.peekFirst().getType()));
+        return labeled.contains(trees.peekFirst().getType());
     }
 
     private void fixPos(TreeContext ctx) {
         for (ITree t : ctx.getRoot().postOrder()) {
             if (!t.isLeaf()) {
-                if (t.getPos() == ITree.NO_VALUE || t.getLength() == ITree.NO_VALUE) {
+                if (t.getPos() == ITree.NO_POS || t.getLength() == ITree.NO_POS) {
                     ITree firstChild = t.getChild(0);
                     t.setPos(firstChild.getPos());
                     if (t.getChildren().size() == 1)
@@ -147,43 +152,9 @@ public abstract class AbstractSrcmlTreeGenerator extends TreeGenerator {
         }
     }
 
-    public String getXml(Reader r) throws IOException {
-        //FIXME this is not efficient but I am not sure how to speed up things here.
-        File f = File.createTempFile("gumtree", "");
-        try (
-                Writer w = Files.newBufferedWriter(f.toPath(), Charset.forName("UTF-8"));
-                BufferedReader br = new BufferedReader(r);
-        ) {
-            String line = br.readLine();
-            while (line != null) {
-                w.append(line + System.lineSeparator());
-                line = br.readLine();
-            }
-        }
-        ProcessBuilder b = new ProcessBuilder(getArguments(f.getAbsolutePath()));
-        b.directory(f.getParentFile());
-        Process p = b.start();
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), "UTF-8"));) {
-            StringBuilder buf = new StringBuilder();
-            // TODO Why do we need to read and bufferize everything, when we could/should only use generateFromStream
-            String line = null;
-            while ((line = br.readLine()) != null)
-                buf.append(line + System.lineSeparator());
-            p.waitFor();
-            if (p.exitValue() != 0) throw new RuntimeException(buf.toString());
-            r.close();
-            String xml = buf.toString();
-            return xml;
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            f.delete();
-        }
-    }
-
     public abstract String getLanguage();
 
-    public String[] getArguments(String file) {
+    public String[] getCommandLine(String file) {
         return new String[]{SRCML_CMD, "-l", getLanguage(), "--position", file, "--tabs=1"};
     }
 }

@@ -21,10 +21,14 @@ package com.github.gumtreediff.gen.javaparser;
 
 import com.github.gumtreediff.io.LineReader;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.Type;
+import com.github.gumtreediff.tree.TypeSet;
 import com.github.gumtreediff.tree.TreeContext;
 import com.github.javaparser.Position;
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.*;
+import com.github.javaparser.ast.type.PrimitiveType;
 import com.github.javaparser.ast.visitor.TreeVisitor;
 
 import java.util.ArrayDeque;
@@ -69,24 +73,31 @@ public class JavaParserVisitor extends TreeVisitor {
             label = Boolean.toString(((BooleanLiteralExpr) node).getValue());
         else if (node instanceof LiteralStringValueExpr)
             label = ((LiteralStringValueExpr) node).getValue();
+        else if (node instanceof PrimitiveType)
+            label = ((PrimitiveType) node).asString();
+        else if (node instanceof Modifier)
+            label = ((Modifier) node).getKeyword().asString();
         pushNode(node, label);
     }
 
     protected void pushNode(Node n, String label) {
-        int type = n.getClass().getName().hashCode();
-        String typeName = n.getClass().getSimpleName();
         try {
             Position begin = n.getRange().get().begin;
             Position end = n.getRange().get().end;
-            push(type, typeName, label, reader.positionFor(begin.line, begin.column),
-                    reader.positionFor(end.line,end.column));
+            int startPos = reader.positionFor(begin.line, begin.column);
+            int length = reader.positionFor(end.line, end.column) - startPos + 2;
+            push(nodeAsSymbol(n), label, startPos, length);
         }
         catch (NoSuchElementException ignore) { }
 
     }
 
-    private void push(int type, String typeName, String label, int startPosition, int length) {
-        ITree t = context.createTree(type, label, typeName);
+    protected Type nodeAsSymbol(Node n) {
+        return TypeSet.type(n.getClass().getSimpleName());
+    }
+
+    private void push(Type type, String label, int startPosition, int length) {
+        ITree t = context.createTree(type, label);
         t.setPos(startPosition);
         t.setLength(length);
 

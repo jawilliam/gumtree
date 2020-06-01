@@ -19,11 +19,10 @@
 
 package com.github.gumtreediff.gen.srcml;
 
-import com.github.gumtreediff.io.TreeIoUtils;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 
@@ -36,9 +35,9 @@ public class TestSrcmlJavaGenerator {
                 + "System.out.println(\"Hello, World\");\n"
                 + "}\n"
                 + "}";
-        TreeContext ctx = new SrcmlJavaTreeGenerator().generateFromString(input);
+        TreeContext ctx = new SrcmlJavaTreeGenerator().generateFrom().string(input);
         ITree t = ctx.getRoot();
-        Assert.assertEquals(33, t.getSize());
+        assertEquals(34, t.getMetrics().size);
     }
 
 }

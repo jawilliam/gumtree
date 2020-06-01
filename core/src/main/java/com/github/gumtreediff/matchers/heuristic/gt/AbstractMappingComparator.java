@@ -19,17 +19,16 @@
 
 package com.github.gumtreediff.matchers.heuristic.gt;
 
-import com.github.gumtreediff.matchers.Mapping;
-import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.tree.ITree;
-
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class AbstractMappingComparator implements Comparator<Mapping> {
+import com.github.gumtreediff.matchers.Mapping;
+import com.github.gumtreediff.matchers.MappingStore;
+import com.github.gumtreediff.tree.ITree;
 
+public abstract class AbstractMappingComparator implements Comparator<Mapping> {
     protected List<Mapping> ambiguousMappings;
 
     protected Map<Mapping, Double> similarities = new HashMap<>();
@@ -49,10 +48,12 @@ public abstract class AbstractMappingComparator implements Comparator<Mapping> {
         if (similarities.get(m2).compareTo(similarities.get(m1)) != 0) {
             return Double.compare(similarities.get(m2), similarities.get(m1));
         }
-        if (m1.first.getId() != m2.first.getId()) {
-            return Integer.compare(m1.first.getId(), m2.first.getId());
+        int srcPos = m1.first.getMetrics().position;
+        int dstPos = m2.first.getMetrics().position;
+        if (srcPos != dstPos) {
+            return Integer.compare(srcPos, dstPos);
         }
-        return Integer.compare(m1.second.getId(), m2.second.getId());
+        return Integer.compare(m1.second.getMetrics().position, m2.second.getMetrics().position);
     }
 
     protected abstract double similarity(ITree src, ITree dst);
@@ -60,15 +61,14 @@ public abstract class AbstractMappingComparator implements Comparator<Mapping> {
     protected double posInParentSimilarity(ITree src, ITree dst) {
         int posSrc = (src.isRoot()) ? 0 : src.getParent().getChildPosition(src);
         int posDst = (dst.isRoot()) ? 0 : dst.getParent().getChildPosition(dst);
-        int maxSrcPos =  (src.isRoot()) ? 1 : src.getParent().getChildren().size();
-        int maxDstPos =  (dst.isRoot()) ? 1 : dst.getParent().getChildren().size();
+        int maxSrcPos = (src.isRoot()) ? 1 : src.getParent().getChildren().size();
+        int maxDstPos = (dst.isRoot()) ? 1 : dst.getParent().getChildren().size();
         int maxPosDiff = Math.max(maxSrcPos, maxDstPos);
         return 1D - ((double) Math.abs(posSrc - posDst) / (double) maxPosDiff);
     }
 
     protected double numberingSimilarity(ITree src, ITree dst) {
-        return 1D - ((double) Math.abs(src.getId() - dst.getId())
-                / (double) maxTreeSize);
+        return 1D - ((double) Math.abs(src.getMetrics().position - dst.getMetrics().position) / (double) maxTreeSize);
     }
 
 }

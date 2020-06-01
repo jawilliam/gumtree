@@ -21,6 +21,7 @@ package com.github.gumtreediff.gen.css;
 
 import com.github.gumtreediff.gen.Register;
 import com.github.gumtreediff.gen.Registry;
+import com.github.gumtreediff.gen.SyntaxException;
 import com.github.gumtreediff.gen.TreeGenerator;
 import com.github.gumtreediff.io.LineReader;
 import com.github.gumtreediff.tree.TreeContext;
@@ -52,13 +53,16 @@ public class CssTreeGenerator extends TreeGenerator {
         p.setCustomErrorHandler(null);
         p.setBrowserCompliantMode(false);
         try {
-            CascadingStyleSheet sheet = CSSHandler.readCascadingStyleSheetFromNode(ECSSVersion.LATEST,
-                    p.styleSheet(), CSSReader.getDefaultInterpretErrorHandler());
+            CascadingStyleSheet sheet = CSSHandler.readCascadingStyleSheetFromNode(
+                    ECSSVersion.LATEST,
+                    CSSReader.getDefaultInterpretErrorHandler(),
+                    true,
+                    p.styleSheet());
             GtCssVisitor v = new GtCssVisitor(sheet, lr);
             CSSVisitor.visitCSS(sheet, v);
             return v.getTreeContext();
         } catch (ParseException e) {
-            throw new IOException(e);
+            throw new SyntaxException(e.getMessage(), e);
         }
     }
 }

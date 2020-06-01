@@ -24,20 +24,20 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 import com.github.gumtreediff.gen.jdt.cd.EntityType;
-import com.github.gumtreediff.tree.ITree;
-import com.github.gumtreediff.tree.TreeContext;
+import com.github.gumtreediff.tree.*;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 
-import com.github.gumtreediff.gen.jdt.cd.EntityType;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
+
+import static com.github.gumtreediff.tree.TypeSet.type;
 
 public abstract class AbstractJdtVisitor extends ASTVisitor {
 
     protected TreeContext context = new TreeContext();
 
-    private Deque<ITree> trees = new ArrayDeque<>();
+    protected Deque<ITree> trees = new ArrayDeque<>();
 
     public AbstractJdtVisitor() {
         super(true);
@@ -48,19 +48,16 @@ public abstract class AbstractJdtVisitor extends ASTVisitor {
     }
 
     protected void pushNode(ASTNode n, String label) {
-        int type = n.getNodeType();
-        String typeName = n.getClass().getSimpleName();
-        push(type, typeName, label, n.getStartPosition(), n.getLength());
+        push(nodeAsSymbol(n), label, n.getStartPosition(), n.getLength());
     }
 
     protected void pushFakeNode(EntityType n, int startPosition, int length) {
-        int type = -n.ordinal(); // Fake types have negative types (but does it matter ?)
-        String typeName = n.name();
-        push(type, typeName, "", startPosition, length);
+        Type type = type(n.name()); // FIXME is that consistent with AbstractJDTVisitor.type
+        push(type,"", startPosition, length);
     }
 
-    private void push(int type, String typeName, String label, int startPosition, int length) {
-        ITree t = context.createTree(type, label, typeName);
+    protected void push(Type type, String label, int startPosition, int length) {
+        ITree t = context.createTree(type, label);
         t.setPos(startPosition);
         t.setLength(length);
 
@@ -80,5 +77,13 @@ public abstract class AbstractJdtVisitor extends ASTVisitor {
 
     protected void popNode() {
         trees.pop();
+    }
+
+    protected static Type nodeAsSymbol(ASTNode node) {
+        return nodeAsSymbol(node.getNodeType());
+    }
+
+    protected static Type nodeAsSymbol(int id) {
+        return type(ASTNode.nodeClassForType(id).getSimpleName());
     }
 }

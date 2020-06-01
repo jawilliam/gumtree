@@ -23,14 +23,12 @@ package com.github.gumtreediff.actions.model;
 import com.github.gumtreediff.tree.ITree;
 
 public class Insert extends Addition {
-
     public Insert(ITree node, ITree parent, int pos) {
         super(node, parent, pos);
     }
 
     @Override
     public String getName() {
-        return "INS";
+        return "insert-node";
     }
-
 }

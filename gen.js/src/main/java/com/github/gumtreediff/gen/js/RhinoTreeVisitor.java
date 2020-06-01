@@ -29,8 +29,9 @@ import org.mozilla.javascript.ast.*;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
 
-public class RhinoTreeVisitor implements NodeVisitor {
+import static com.github.gumtreediff.tree.TypeSet.type;
 
+public class RhinoTreeVisitor implements NodeVisitor {
     private Map<AstNode, ITree> trees;
     private TreeContext context;
 
@@ -41,7 +42,7 @@ public class RhinoTreeVisitor implements NodeVisitor {
         context.setRoot(tree);
     }
 
-    public TreeContext getTree(AstNode root) {
+    public TreeContext getTreeContext() {
         return context;
     }
 
@@ -73,11 +74,10 @@ public class RhinoTreeVisitor implements NodeVisitor {
     }
 
     private ITree buildTree(AstNode node)  {
-        ITree t = context.createTree(node.getType(), ITree.NO_LABEL, Token.typeToName(node.getType()));
+        ITree t = context.createTree(type(Token.typeToName(node.getType())), ITree.NO_LABEL);
         t.setPos(node.getAbsolutePosition());
         t.setLength(node.getLength());
         trees.put(node, t);
         return t;
     }
-
 }

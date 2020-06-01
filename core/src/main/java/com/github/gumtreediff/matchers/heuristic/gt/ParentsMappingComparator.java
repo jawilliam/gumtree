@@ -22,16 +22,17 @@ package com.github.gumtreediff.matchers.heuristic.gt;
 import com.github.gumtreediff.matchers.Mapping;
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.tree.ITree;
-import com.github.gumtreediff.utils.StringAlgorithms;
+import com.github.gumtreediff.utils.SequenceAlgorithms;
 
 import java.util.*;
 
 public final class ParentsMappingComparator extends AbstractMappingComparator {
 
-    public ParentsMappingComparator(List<Mapping> ambiguousMappings, MappingStore mappings, int maxTreeSize) {
+    public ParentsMappingComparator(List<Mapping> ambiguousMappings, MappingStore mappings,
+                                    int maxTreeSize) {
         super(ambiguousMappings, mappings, maxTreeSize);
         for (Mapping ambiguousMapping: ambiguousMappings)
-            similarities.put(ambiguousMapping, similarity(ambiguousMapping.getFirst(), ambiguousMapping.getSecond()));
+            similarities.put(ambiguousMapping, similarity(ambiguousMapping.first, ambiguousMapping.second));
     }
 
     @Override
@@ -43,7 +44,8 @@ public final class ParentsMappingComparator extends AbstractMappingComparator {
     protected double parentsJaccardSimilarity(ITree src, ITree dst) {
         List<ITree> srcParents = src.getParents();
         List<ITree> dstParents = dst.getParents();
-        double numerator = (double) StringAlgorithms.lcss(srcParents, dstParents).size();
+        double numerator =
+                (double) SequenceAlgorithms.longestCommonSubsequenceWithTypeAndLabel(srcParents, dstParents).size();
         double denominator = (double) srcParents.size() + (double) dstParents.size() - numerator;
         return numerator / denominator;
     }

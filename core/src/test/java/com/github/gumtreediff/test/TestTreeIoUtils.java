@@ -20,62 +20,125 @@
 
 package com.github.gumtreediff.test;
 
+import com.github.gumtreediff.io.LineReader;
 import com.github.gumtreediff.io.TreeIoUtils;
 import com.github.gumtreediff.tree.ITree;
+import static com.github.gumtreediff.tree.TypeSet.type;
+import com.github.gumtreediff.tree.Type;
 import com.github.gumtreediff.tree.TreeContext;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.ListIterator;
+import java.io.IOException;
+import java.io.StringReader;
 
 import java.io.ByteArrayOutputStream;
 
-import static org.junit.Assert.*;
-
+import static org.junit.jupiter.api.Assertions.*;
 public class TestTreeIoUtils {
+    private static final Type TYPE_0 = type("TYPE_0");
+    private static final Type TYPE_1 = type("TYPE_1");
+    private static final Type TYPE_2 = type("TYPE_2");
+    private static final Type TYPE_3 = type("TYPE_3");
 
     @Test
     public void testSerializeTree() throws Exception {
-        TreeContext tc = new TreeContext();
-        ITree a = tc.createTree(0, "a", "type0");
-        tc.setRoot(a);
-
-        ITree b = tc.createTree(1, "b", null);
-        b.setParentAndUpdateChildren(a);
-        ITree c = tc.createTree(3, "c", null);
-        c.setParentAndUpdateChildren(b);
-        ITree d = tc.createTree(3, "d", null);
-        d.setParentAndUpdateChildren(b);
-        ITree e = tc.createTree(2, null, null);
-        e.setParentAndUpdateChildren(a);
-        // Refresh metrics is called because it is automatically called in fromXML
-        tc.validate();
+        TreeContext tc = getTreeContext();
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
-
         TreeIoUtils.toXml(tc).writeTo(bos);
-        TreeContext tca = TreeIoUtils.fromXml().generateFromString(bos.toString());
-        ITree ca = tca.getRoot();
-
-        assertTrue(a.isIsomorphicTo(ca));
-        assertTrue(ca.getType() == 0);
-        assertTrue(tc.getTypeLabel(ca).equals("type0"));
-        assertTrue(ca.getLabel().equals("a"));
+        assertEquals("<?xml version=\"1.0\" ?>\n"
+                     + "<root>\n"
+                     + "  <context></context>\n"
+                     + "  <tree type=\"TYPE_0\" pos=\"0\" length=\"1000\">\n"
+                     + "    <tree type=\"TYPE_1\" pos=\"1\" length=\"50\">\n"
+                     + "      <tree type=\"TYPE_3\" label=\"a\" pos=\"11\" length=\"10\"></tree>\n"
+                     + "      <tree type=\"TYPE_3\" label=\"b\" pos=\"21\" length=\"10\"></tree>\n"
+                     + "    </tree>\n"
+                     + "    <tree type=\"TYPE_2\" pos=\"51\" length=\"900\"></tree>\n"
+                     + "  </tree>\n"
+                     + "</root>\n", bos.toString());
+        TreeContext tca = TreeIoUtils.fromXml().generateFrom().string(bos.toString());
+        assertEquals(tca.getRoot().getPos(), 0);
+        assertEquals(tca.getRoot().getLength(), 1000);
+        assertEquals(tca.getRoot().getChild(0).getPos(), 1);
+        assertEquals(tca.getRoot().getChild(0).getLength(), 50);
+        assertEquals(tca.getRoot().getChild(1).getPos(), 51);
+        assertEquals(tca.getRoot().getChild(1).getLength(), 900);
+        assertTrue(tc.getRoot().isIsomorphicTo(tca.getRoot()));
     }
 
     @Test
-    public void testLoadBigTree() {
-        ITree big = TreeLoader.getDummyBig();
-        assertEquals("a", big.getLabel());
-        compareList(big.getChildren(), "b", "e", "f");
+    public void testLineReader() throws IOException {
+        LineReader lr = new LineReader(new StringReader("foo\nbar\nbaz\n"));
+        int intValueOfChar;
+        String targetString = "";
+        while ((intValueOfChar = lr.read()) != -1) {
+            targetString += (char) intValueOfChar;
+        }
+        lr.close();
+        assertEquals(3, lr.positionFor(2, 1));
+        assertEquals(7, lr.positionFor(3, 1));
+        assertEquals(-1, lr.positionFor(5, 1));
     }
 
-    void compareList(List<ITree> lst, String... expected) {
-        ListIterator<ITree> it = lst.listIterator();
-        for (String e: expected) {
-            ITree n = it.next();
-            assertEquals(e, n.getLabel());
-        }
-        assertFalse(it.hasNext());
+    @Test
+    public void testPrintTextTree() throws Exception {
+        TreeContext tc = getTreeContext();
+        assertEquals("TYPE_0 [0,1000]\n"
+                     + "    TYPE_1 [1,51]\n"
+                     + "        TYPE_3: a [11,21]\n"
+                     + "        TYPE_3: b [21,31]\n"
+                     + "    TYPE_2 [51,951]", tc.toString());
+        assertEquals("TYPE_0 [0,1000]\n"
+                     + "    TYPE_1 [1,51]\n"
+                     + "        TYPE_3: a [11,21]\n"
+                     + "        TYPE_3: b [21,31]\n"
+                     + "    TYPE_2 [51,951]", tc.getRoot().toTreeString());
+        assertEquals("TYPE_1 [1,51]\n"
+                     + "    TYPE_3: a [11,21]\n"
+                     + "    TYPE_3: b [21,31]", tc.getRoot().getChild(0).toTreeString());
+    }
+
+    @Test
+    public void testDotFormatter() {
+        TreeContext tc = getTreeContext();
+        assertEquals("digraph G {\n"
+                     + "\tid_0 [label=\"TYPE_0 [0,1000]\"];\n"
+                     + "\tid_1 [label=\"TYPE_1 [1,51]\"];\n"
+                     + "\tid_0 -> id_1;\n"
+                     + "\tid_2 [label=\"TYPE_3: a [11,21]\"];\n"
+                     + "\tid_1 -> id_2;\n"
+                     + "\tid_3 [label=\"TYPE_3: b [21,31]\"];\n"
+                     + "\tid_1 -> id_3;\n"
+                     + "\tid_4 [label=\"TYPE_2 [51,951]\"];\n"
+                     + "\tid_0 -> id_4;\n"
+                     + "}", TreeIoUtils.toDot(tc).toString());
+    }
+
+    private static TreeContext getTreeContext() {
+        TreeContext tc = new TreeContext();
+        ITree a = tc.createTree(TYPE_0);
+        a.setPos(0);
+        a.setLength(1000);
+        tc.setRoot(a);
+
+        ITree b = tc.createTree(TYPE_1);
+        b.setPos(1);
+        b.setLength(50);
+        b.setParentAndUpdateChildren(a);
+        ITree c = tc.createTree(TYPE_3, "a");
+        c.setPos(11);
+        c.setLength(10);
+        c.setParentAndUpdateChildren(b);
+        ITree d = tc.createTree(TYPE_3, "b");
+        d.setPos(21);
+        d.setLength(10);
+        d.setParentAndUpdateChildren(b);
+        ITree e = tc.createTree(TYPE_2);
+        e.setPos(51);
+        e.setLength(900);
+        e.setParentAndUpdateChildren(a);
+
+        return tc;
     }
 }

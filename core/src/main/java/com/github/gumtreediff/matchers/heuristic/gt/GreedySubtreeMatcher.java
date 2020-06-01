@@ -20,32 +20,37 @@
 
 package com.github.gumtreediff.matchers.heuristic.gt;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import com.github.gumtreediff.matchers.Mapping;
-import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.MultiMappingStore;
 import com.github.gumtreediff.tree.ITree;
 
-import java.util.*;
-
 public class GreedySubtreeMatcher extends AbstractSubtreeMatcher {
-
-    public GreedySubtreeMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
-
     @Override
     public void filterMappings(MultiMappingStore multiMappings) {
         // Select unique mappings first and extract ambiguous mappings.
         List<Mapping> ambiguousList = new ArrayList<>();
         Set<ITree> ignored = new HashSet<>();
-        for (ITree src: multiMappings.getSrcs()) {
-            if (multiMappings.isSrcUnique(src))
-                addMappingRecursively(src, multiMappings.getDst(src).iterator().next());
-            else if (!ignored.contains(src)) {
-                Set<ITree> adsts = multiMappings.getDst(src);
-                Set<ITree> asrcs = multiMappings.getSrc(multiMappings.getDst(src).iterator().next());
+        for (ITree src : multiMappings.allMappedSrcs()) {
+            boolean isMappingUnique = false;
+            if (multiMappings.isSrcUnique(src)) {
+                ITree dst = multiMappings.getDsts(src).iterator().next();
+                if (multiMappings.isDstUnique(dst)) {
+                    mappings.addMappingRecursively(src, dst);
+                    isMappingUnique = true;
+                }
+            }
+
+            if (!(ignored.contains(src) || isMappingUnique)) {
+                Set<ITree> adsts = multiMappings.getDsts(src);
+                Set<ITree> asrcs = multiMappings.getSrcs(multiMappings.getDsts(src).iterator().next());
                 for (ITree asrc : asrcs)
-                    for (ITree adst: adsts)
+                    for (ITree adst : adsts)
                         ambiguousList.add(new Mapping(asrc, adst));
                 ignored.addAll(asrcs);
             }

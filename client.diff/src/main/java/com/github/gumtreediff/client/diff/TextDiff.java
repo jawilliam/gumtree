@@ -20,26 +20,29 @@
 
 package com.github.gumtreediff.client.diff;
 
-import com.github.gumtreediff.actions.ActionGenerator;
-import com.github.gumtreediff.actions.model.Action;
+import com.github.gumtreediff.actions.Diff;
+import com.github.gumtreediff.actions.EditScript;
 import com.github.gumtreediff.client.Option;
 import com.github.gumtreediff.client.Register;
 import com.github.gumtreediff.io.ActionsIoUtils;
 import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.tree.TreeContext;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.List;
 
-@Register(name = "diff", description = "Dump actions in our textual format",
+@Register(name = "textdiff", description = "Dump actions in a textual format",
         options = AbstractDiffClient.Options.class)
 public class TextDiff extends AbstractDiffClient<TextDiff.Options> {
-
     public TextDiff(String[] args) {
         super(args);
+        if (!Files.isRegularFile(Paths.get(opts.src)))
+            throw new Option.OptionException("Source must be a file: " + opts.src, opts);
+        if (!Files.isRegularFile(Paths.get(opts.dst)))
+            throw new Option.OptionException("Destination must be a file: " + opts.dst, opts);
 
         if (opts.format == null) {
             opts.format = OutputFormat.TEXT;
@@ -65,9 +68,9 @@ public class TextDiff extends AbstractDiffClient<TextDiff.Options> {
                             try {
                                 format = OutputFormat.valueOf(args[0].toUpperCase());
                             } catch (IllegalArgumentException e) {
-                                System.err.printf("No such format '%s', available formats are: %s\n",
-                                        args[0].toUpperCase(), Arrays.toString(OutputFormat.values()));
-                                System.exit(-1);
+                                throw new Option.OptionException(String.format(
+                                        "No such format '%s', available formats are: %s\n",
+                                        args[0].toUpperCase(), Arrays.toString(OutputFormat.values())), e);
                             }
                         }
                     },
@@ -84,7 +87,7 @@ public class TextDiff extends AbstractDiffClient<TextDiff.Options> {
         void dump(PrintStream out) {
             super.dump(out);
             out.printf("format: %s\n", format);
-            out.printf("output file: %s\n", output == null ? "<Stdout>" : output);
+            out.printf("output file: %s\n", output == null ? "<stdout>" : output);
         }
     }
 
@@ -94,48 +97,40 @@ public class TextDiff extends AbstractDiffClient<TextDiff.Options> {
     }
 
     @Override
-    public void run() {
-        Matcher m = matchTrees();
-        ActionGenerator g = new ActionGenerator(getSrcTreeContext().getRoot(),
-                getDstTreeContext().getRoot(), m.getMappings());
-        g.generate();
-        List<Action> actions = g.getActions();
-        try {
-            ActionsIoUtils.ActionSerializer serializer = opts.format.getSerializer(
-                    getSrcTreeContext(), actions, m.getMappings());
-            if (opts.output == null)
-                serializer.writeTo(System.out);
-            else
-                serializer.writeTo(opts.output);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    public void run() throws Exception {
+        Diff diff = getDiff();
+        ActionsIoUtils.ActionSerializer serializer = opts.format.getSerializer(
+                diff.src, diff.editScript, diff.mappings);
+        if (opts.output == null)
+            serializer.writeTo(System.out);
+        else
+            serializer.writeTo(opts.output);
     }
 
-    enum OutputFormat { // TODO make a registry for that also ?
+    enum OutputFormat {
         TEXT {
             @Override
-            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, List<Action> actions, MappingStore mappings)
+            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, EditScript actions, MappingStore mappings)
                     throws IOException {
                 return ActionsIoUtils.toText(sctx, actions, mappings);
             }
         },
         XML {
             @Override
-            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, List<Action> actions, MappingStore mappings)
+            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, EditScript actions, MappingStore mappings)
                     throws IOException {
                 return ActionsIoUtils.toXml(sctx, actions, mappings);
             }
         },
         JSON {
             @Override
-            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, List<Action> actions, MappingStore mappings)
+            ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, EditScript actions, MappingStore mappings)
                     throws IOException {
                 return ActionsIoUtils.toJson(sctx, actions, mappings);
             }
         };
 
-        abstract ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, List<Action> actions,
+        abstract ActionsIoUtils.ActionSerializer getSerializer(TreeContext sctx, EditScript actions,
                                                                MappingStore mappings) throws IOException;
     }
 }

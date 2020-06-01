@@ -20,33 +20,30 @@
 
 package com.github.gumtreediff.matchers.heuristic;
 
-import com.github.gumtreediff.utils.StringAlgorithms;
+import java.util.List;
+
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.matchers.Register;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeUtils;
+import com.github.gumtreediff.utils.SequenceAlgorithms;
 
-import java.util.List;
-
-@Register(id = "lcs")
-public class LcsMatcher extends Matcher {
-
-    public LcsMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
+@Register(id = "longestCommonSequence")
+public class LcsMatcher implements Matcher {
 
     @Override
-    public void match() {
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+
         List<ITree> srcSeq = TreeUtils.preOrder(src);
         List<ITree> dstSeq = TreeUtils.preOrder(dst);
-        List<int[]> lcs = StringAlgorithms.lcss(srcSeq, dstSeq);
-        System.out.println(lcs.size());
-        for (int[] x: lcs) {
-
+        List<int[]> lcs = SequenceAlgorithms.longestCommonSubsequenceWithTypeAndLabel(srcSeq, dstSeq);
+        for (int[] x : lcs) {
             ITree t1 = srcSeq.get(x[0]);
             ITree t2 = dstSeq.get(x[1]);
-            addMapping(t1, t2);
+            mappings.addMapping(t1, t2);
         }
+        return mappings;
     }
+
 }

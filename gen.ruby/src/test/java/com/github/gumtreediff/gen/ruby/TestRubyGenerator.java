@@ -21,45 +21,53 @@
 package com.github.gumtreediff.gen.ruby;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 
-import com.github.gumtreediff.tree.ITree;
-import com.github.gumtreediff.tree.TreeContext;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import com.github.gumtreediff.gen.SyntaxException;
+import com.github.gumtreediff.tree.*;
+import org.jrubyparser.ast.NodeType;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import com.github.gumtreediff.tree.ITree;
+import static com.github.gumtreediff.tree.TypeSet.type;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestRubyGenerator {
+    private static final Type ROOT_NODE = type(NodeType.ROOTNODE.name());
 
     @Test
     public void testFileParsing() throws IOException {
-        Reader r = new InputStreamReader(getClass().getResourceAsStream("/sample.rb"), "UTF-8");
-        ITree tree = new RubyTreeGenerator().generateFromReader(r).getRoot();
-        assertEquals(102, tree.getType());
-        assertEquals(1726, tree.getSize());
+        ITree tree = new RubyTreeGenerator().generateFrom()
+                .charset("UTF-8").stream(getClass().getResourceAsStream("/sample.rb")).getRoot();
+        assertEquals(ROOT_NODE, tree.getType());
+        assertEquals(1726, tree.getMetrics().size);
     }
 
     @Test
     public void testSimpleSyntax() throws IOException {
         String input = "module Foo; puts \"Hello world!\"; end;";
-        ITree t = new RubyTreeGenerator().generateFromString(input).getRoot();
-        assertEquals(102, t.getType());
+        ITree t = new RubyTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(ROOT_NODE, t.getType());
     }
 
     @Test
     public void testRuby2Syntax() throws IOException {
         String input = "{ foo: true }";
-        ITree t = new RubyTreeGenerator().generateFromString(input).getRoot();
-        assertEquals(102, t.getType());
+        ITree t = new RubyTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(ROOT_NODE, t.getType());
     }
 
     @Test
     public void testPosition() throws IOException {
         String input = "module Baz\nclass Foo\n\tdef foo(bar)\n\t\tputs bar\n\tend\nend\nend";
-        TreeContext ctx = new RubyTreeGenerator().generateFromString(input);
+        TreeContext ctx = new RubyTreeGenerator().generateFrom().string(input);
         ITree root = ctx.getRoot();
     }
 
+    @Test
+    public void badSyntax() throws IOException {
+        String input = "module Foo\ndef foo((bar)\n\tputs 'foo'\nend\n";
+        Assertions.assertThrows(SyntaxException.class, () -> {
+            TreeContext ct = new RubyTreeGenerator().generateFrom().string(input);
+        });
+    }
 }

@@ -24,7 +24,6 @@ import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
 
 public class Update extends Action {
-
     private String value;
 
     public Update(ITree node, String value) {
@@ -34,7 +33,7 @@ public class Update extends Action {
 
     @Override
     public String getName() {
-        return "UPD";
+        return "update-node";
     }
 
     public String getValue() {
@@ -43,12 +42,18 @@ public class Update extends Action {
 
     @Override
     public String toString() {
-        return getName() + " " + node.toShortString() + " from " + node.getLabel() + " to " + value;
+        return String.format("===\n%s\n---\n%s\nreplace %s by %s",
+                getName(),
+                node.toString(),
+                node.getLabel(),
+                getValue());
     }
 
-    @Override
-    public String format(TreeContext ctx) {
-        return getName() + " " + node.toPrettyString(ctx) + " from " + node.getLabel() + " to " + value;
-    }
+    public boolean equals(Object o) {
+        if (!(super.equals(o)))
+            return false;
 
+        Update a = (Update) o;
+        return value == a.value;
+    }
 }

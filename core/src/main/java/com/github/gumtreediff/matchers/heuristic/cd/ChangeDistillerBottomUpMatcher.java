@@ -20,42 +20,68 @@
 
 package com.github.gumtreediff.matchers.heuristic.cd;
 
+import java.util.List;
+import java.util.Set;
+
+import com.github.gumtreediff.matchers.Configurable;
+import com.github.gumtreediff.matchers.ConfigurationOptions;
+import com.github.gumtreediff.matchers.GumTreeProperties;
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.Matcher;
+import com.github.gumtreediff.matchers.SimilarityMetrics;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeUtils;
+import com.google.common.collect.Sets;
 
-import java.util.List;
+public class ChangeDistillerBottomUpMatcher implements Matcher, Configurable {
 
-public class ChangeDistillerBottomUpMatcher extends Matcher {
+    private static final double DEFAULT_STRUCT_SIM_THRESHOLD_1 = 0.6;
 
-    public static final double STRUCT_SIM_THRESHOLD_1 =  Double.parseDouble(System.getProperty("gt.cd.ssim1", "0.6"));
+    private static final double DEFAULT_STRUCT_SIM_THRESHOLD_2 = 0.4;
 
-    public static final double STRUCT_SIM_THRESHOLD_2 = Double.parseDouble(System.getProperty("gt.cd.ssim2", "0.4"));
+    private static final int DEFAULT_MAX_NUMBER_OF_LEAVES = 4;
 
-    public static final int MAX_NUMBER_OF_LEAVES = Integer.parseInt(System.getProperty("gt.cd.ml", "4"));
+    protected double struct_sim_threshold_1 = DEFAULT_STRUCT_SIM_THRESHOLD_1;
 
-    public ChangeDistillerBottomUpMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
+    protected double struct_sim_threshold_2 = DEFAULT_STRUCT_SIM_THRESHOLD_1;
+
+    protected int max_number_of_leaves = DEFAULT_MAX_NUMBER_OF_LEAVES;
+
+    public ChangeDistillerBottomUpMatcher() {
+
     }
 
     @Override
-    public void match() {
-        List<ITree> dstTrees = TreeUtils.postOrder(this.dst);
-        for (ITree currentSrcTree: this.src.postOrder()) {
+    public void configure(GumTreeProperties properties) {
+        struct_sim_threshold_1 = properties.tryConfigure(ConfigurationOptions.GT_CD_SSIM1,
+                DEFAULT_STRUCT_SIM_THRESHOLD_1);
+
+        struct_sim_threshold_2 = properties.tryConfigure(ConfigurationOptions.GT_CD_SSIM2,
+                DEFAULT_STRUCT_SIM_THRESHOLD_2);
+
+        max_number_of_leaves = properties.tryConfigure(ConfigurationOptions.GT_CD_ML, DEFAULT_MAX_NUMBER_OF_LEAVES);
+
+    }
+
+    @Override
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+        List<ITree> dstTrees = TreeUtils.postOrder(dst);
+        for (ITree currentSrcTree : src.postOrder()) {
             int numberOfLeaves = numberOfLeaves(currentSrcTree);
-            for (ITree currentDstTree: dstTrees) {
-                if (isMappingAllowed(currentSrcTree, currentDstTree)
+            for (ITree currentDstTree : dstTrees) {
+                if (mappings.isMappingAllowed(currentSrcTree, currentDstTree)
                         && !(currentSrcTree.isLeaf() || currentDstTree.isLeaf())) {
-                    double similarity = chawatheSimilarity(currentSrcTree, currentDstTree);
-                    if ((numberOfLeaves > MAX_NUMBER_OF_LEAVES && similarity >= STRUCT_SIM_THRESHOLD_1)
-                            || (numberOfLeaves <= MAX_NUMBER_OF_LEAVES && similarity >= STRUCT_SIM_THRESHOLD_2)) {
-                        addMapping(currentSrcTree, currentDstTree);
+                    double similarity = SimilarityMetrics.chawatheSimilarity(currentSrcTree, currentDstTree, mappings);
+                    if ((numberOfLeaves > max_number_of_leaves && similarity >= struct_sim_threshold_1)
+                            || (numberOfLeaves <= max_number_of_leaves && similarity >= struct_sim_threshold_2)) {
+                        mappings.addMapping(currentSrcTree, currentDstTree);
                         break;
                     }
                 }
             }
         }
+
+        return mappings;
     }
 
     private int numberOfLeaves(ITree root) {
@@ -64,5 +90,36 @@ public class ChangeDistillerBottomUpMatcher extends Matcher {
             if (tree.isLeaf())
                 numberOfLeaves++;
         return numberOfLeaves;
+    }
+
+    public double getStruct_sim_threshold_1() {
+        return struct_sim_threshold_1;
+    }
+
+    public void setStruct_sim_threshold_1(double structSimThreshold1) {
+        this.struct_sim_threshold_1 = structSimThreshold1;
+    }
+
+    public double getStruct_sim_threshold_2() {
+        return struct_sim_threshold_2;
+    }
+
+    public void setStruct_sim_threshold_2(double structSimThreshold2) {
+        this.struct_sim_threshold_2 = structSimThreshold2;
+    }
+
+    public int getMax_number_of_leaves() {
+        return max_number_of_leaves;
+    }
+
+    public void setMax_number_of_leaves(int maxNumberOfLeaves) {
+        this.max_number_of_leaves = maxNumberOfLeaves;
+    }
+
+    @Override
+    public Set<ConfigurationOptions> getApplicableOptions() {
+
+        return Sets.newHashSet(ConfigurationOptions.GT_CD_SSIM1, ConfigurationOptions.GT_CD_SSIM2,
+                ConfigurationOptions.GT_CD_ML);
     }
 }

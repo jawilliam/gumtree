@@ -21,9 +21,7 @@
 package com.github.gumtreediff.client;
 
 import com.github.gumtreediff.io.TreeIoUtils;
-import com.github.gumtreediff.gen.Generators;
-import com.github.gumtreediff.io.TreeIoUtils;
-import com.github.gumtreediff.io.TreeIoUtils.TreeSerializer;
+import com.github.gumtreediff.gen.TreeGenerators;
 import com.github.gumtreediff.tree.TreeContext;
 
 import java.io.FileOutputStream;
@@ -38,7 +36,8 @@ public class Serializer extends Client {
     public static final String SYNTAX = "Syntax: parse [options] file ...";
 
     static class Options implements Option.Context {
-        protected OutputFormat format = OutputFormat.JSON;
+        protected OutputFormat format = OutputFormat.TEXT;
+        protected String generator = null;
         protected String output = null;
         protected String[] files;
 
@@ -58,7 +57,13 @@ public class Serializer extends Client {
                     new Option("-o", "Output filename (or directory if more than one file), defaults to stdout", 1) {
                         @Override
                         protected void process(String name, String[] args) {
-
+                            output = args[0];
+                        }
+                    },
+                    new Option("-g", "Preferred generator to use.", 1) {
+                        @Override
+                        protected void process(String name, String[] args) {
+                            generator = args[0];
                         }
                     }
             };
@@ -95,6 +100,12 @@ public class Serializer extends Client {
             TreeIoUtils.TreeSerializer getSerializer(TreeContext ctx) {
                 return TreeIoUtils.toLisp(ctx);
             }
+        },
+        TEXT  {
+            @Override
+            TreeIoUtils.TreeSerializer getSerializer(TreeContext ctx) {
+                return TreeIoUtils.toText(ctx);
+            }
         };
 
         abstract TreeIoUtils.TreeSerializer getSerializer(TreeContext ctx);
@@ -112,20 +123,20 @@ public class Serializer extends Client {
     }
 
     @Override
-    public void run() throws IOException {
+    public void run() throws Exception {
         final boolean multiple = opts.files.length > 1;
         if (multiple && opts.output != null)
             Files.createDirectories(FileSystems.getDefault().getPath(opts.output));
 
         for (String file : opts.files) {
-            try {
-                TreeContext tc = Generators.getInstance().getTree(file);
-                opts.format.getSerializer(tc).writeTo(opts.output == null
-                        ? System.out
-                        : new FileOutputStream(opts.output));
-            } catch (Exception e) {
-                System.err.println(e);
-            }
+            TreeContext tc = getTreeContext(file);
+            opts.format.getSerializer(tc).writeTo(opts.output == null
+                    ? System.out
+                    : new FileOutputStream(opts.output));
         }
+    }
+
+    private TreeContext getTreeContext(String file) throws IOException {
+        return TreeGenerators.getInstance().getTree(file, opts.generator);
     }
 }

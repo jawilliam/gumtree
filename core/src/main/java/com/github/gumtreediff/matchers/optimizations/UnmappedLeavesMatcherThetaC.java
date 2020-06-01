@@ -20,58 +20,45 @@
 
 package com.github.gumtreediff.matchers.optimizations;
 
-import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.matchers.Matcher;
-import com.github.gumtreediff.tree.ITree;
-
 import java.util.LinkedList;
 import java.util.List;
 
+import com.github.gumtreediff.matchers.MappingStore;
+import com.github.gumtreediff.matchers.Matcher;
+import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.TreeUtils;
+
 /**
  * This implements the unmapped leaves optimization (Theta C).
- *
  */
-public class UnmappedLeavesMatcherThetaC extends Matcher {
+public class UnmappedLeavesMatcherThetaC implements Matcher {
 
-    /**
-     * Instantiates a new matcher for Theta C.
-     *
-     * @param src the src
-     * @param dst the dst
-     * @param store the store
-     */
-    public UnmappedLeavesMatcherThetaC(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
+    private ITree src;
+    private ITree dst;
+    private MappingStore mappings;
 
     @Override
-    protected void addMapping(ITree src, ITree dst) {
-        assert (src != null);
-        assert (dst != null);
-        super.addMapping(src, dst);
-    }
-
-    /**
-     * Match.
-     */
-    @Override
-    public void match() {
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+        this.src = src;
+        this.dst = dst;
+        this.mappings = mappings;
         thetaC();
+        return mappings;
     }
 
     private void thetaC() {
-        List<ITree> allNodesSrc = src.getTrees();
-        List<ITree> allNodesDst = dst.getTrees();
+        List<ITree> allNodesSrc = TreeUtils.preOrder(src);
+        List<ITree> allNodesDst = TreeUtils.preOrder(dst);
         List<ITree> unmatchedNodes1 = new LinkedList<>();
         List<ITree> unmatchedNodes2 = new LinkedList<>();
 
         for (ITree node : allNodesSrc) {
-            if (!mappings.hasSrc(node)) {
+            if (!mappings.isSrcMapped(node)) {
                 unmatchedNodes1.add(node);
             }
         }
         for (ITree node : allNodesDst) {
-            if (!mappings.hasDst(node)) {
+            if (!mappings.isDstMapped(node)) {
                 unmatchedNodes2.add(node);
             }
         }
@@ -79,50 +66,48 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
             if (node.getChildren().size() == 0) {
 
                 ITree parent = node.getParent();
-                if (mappings.getDst(parent) != null) {
-                    ITree partner = mappings.getDst(parent);
+                if (mappings.getDstForSrc(parent) != null) {
+                    ITree partner = mappings.getDstForSrc(parent);
                     int pos = parent.getChildren().indexOf(node);
                     if (pos < partner.getChildren().size()) {
                         ITree child = partner.getChildren().get(pos);
                         if (child.getType() == node.getType()) {
                             if (child.getLabel().equals(node.getLabel())) {
-                                ITree childPartner = mappings.getSrc(child);
+                                ITree childPartner = mappings.getSrcForDst(child);
                                 if (childPartner != null) {
                                     if (!childPartner.getLabel().equals(node.getLabel())) {
-                                        mappings.unlink(childPartner, child);
-                                        addMapping(node, child);
+                                        mappings.removeMapping(childPartner, child);
+                                        mappings.addMapping(node, child);
                                     }
                                 } else {
-                                    addMapping(node, child);
+                                    mappings.addMapping(node, child);
 
                                 }
                             } else {
-                                ITree childPartner = mappings.getSrc(child);
+                                ITree childPartner = mappings.getSrcForDst(child);
                                 if (childPartner != null) {
-                                    if (mappings.getDst(childPartner.getParent()) == null) {
+                                    if (mappings.getDstForSrc(childPartner.getParent()) == null) {
                                         if (!childPartner.getLabel().equals(child.getLabel())) {
-                                            mappings.unlink(childPartner, child);
-                                            addMapping(node, child);
+                                            mappings.removeMapping(childPartner, child);
+                                            mappings.addMapping(node, child);
                                         }
                                     }
                                 } else {
-                                    addMapping(node, child);
+                                    mappings.addMapping(node, child);
                                 }
                             }
                         } else {
                             if (child.getChildren().size() == 1) {
                                 child = child.getChildren().get(0);
-                                if (child.getType() == node.getType()
-                                        && child.getLabel().equals(node.getLabel())) {
-                                    ITree childPartner = mappings.getSrc(child);
+                                if (child.getType() == node.getType() && child.getLabel().equals(node.getLabel())) {
+                                    ITree childPartner = mappings.getSrcForDst(child);
                                     if (childPartner != null) {
                                         if (!childPartner.getLabel().equals(node.getLabel())) {
-                                            mappings.unlink(childPartner, child);
-                                            addMapping(node, child);
-                                        } else if (mappings
-                                                .getDst(childPartner.getParent()) == null) {
-                                            mappings.unlink(childPartner, child);
-                                            addMapping(node, child);
+                                            mappings.removeMapping(childPartner, child);
+                                            mappings.addMapping(node, child);
+                                        } else if (mappings.getDstForSrc(childPartner.getParent()) == null) {
+                                            mappings.removeMapping(childPartner, child);
+                                            mappings.addMapping(node, child);
                                         }
                                     }
                                 }
@@ -131,15 +116,14 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
                                     ITree possibleMatch = partner.getChildren().get(i);
                                     if (possibleMatch.getType() == node.getType()
                                             && possibleMatch.getLabel().equals(node.getLabel())) {
-                                        ITree possibleMatchSrc = mappings.getSrc(possibleMatch);
+                                        ITree possibleMatchSrc = mappings.getSrcForDst(possibleMatch);
                                         if (possibleMatchSrc == null) {
-                                            addMapping(node, possibleMatch);
+                                            mappings.addMapping(node, possibleMatch);
                                             break;
                                         } else {
-                                            if (!possibleMatchSrc.getLabel()
-                                                    .equals(possibleMatch.getLabel())) {
-                                                mappings.unlink(possibleMatchSrc, possibleMatch);
-                                                addMapping(node, possibleMatch);
+                                            if (!possibleMatchSrc.getLabel().equals(possibleMatch.getLabel())) {
+                                                mappings.removeMapping(possibleMatchSrc, possibleMatch);
+                                                mappings.addMapping(node, possibleMatch);
                                                 break;
                                             }
                                         }
@@ -152,55 +136,53 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
             }
         }
         for (ITree node : unmatchedNodes2) {
-            if (mappings.hasSrc(node)) {
+            if (mappings.isSrcMapped(node)) {
                 continue;
             }
             if (node.getChildren().size() == 0) {
                 ITree parent = node.getParent();
-                if (mappings.getSrc(parent) != null) {
-                    ITree partner = mappings.getSrc(parent);
+                if (mappings.getSrcForDst(parent) != null) {
+                    ITree partner = mappings.getSrcForDst(parent);
                     int pos = parent.getChildren().indexOf(node);
                     if (pos < partner.getChildren().size()) {
                         ITree child = partner.getChildren().get(pos);
                         if (child.getType() == node.getType()) {
                             if (child.getLabel().equals(node.getLabel())) {
-                                ITree tree = mappings.getDst(child);
+                                ITree tree = mappings.getDstForSrc(child);
                                 if (tree != null) {
                                     if (!tree.getLabel().equals(node.getLabel())) {
-                                        mappings.unlink(child, tree);
-                                        addMapping(child, node);
+                                        mappings.removeMapping(child, tree);
+                                        mappings.addMapping(child, node);
                                     }
                                 } else {
-                                    addMapping(child, node);
+                                    mappings.addMapping(child, node);
                                 }
                             } else {
-                                ITree childPartner = mappings.getDst(child);
+                                ITree childPartner = mappings.getDstForSrc(child);
                                 if (childPartner != null) {
-                                    if (mappings.getSrc(childPartner.getParent()) == null) {
+                                    if (mappings.getSrcForDst(childPartner.getParent()) == null) {
                                         if (!childPartner.getLabel().equals(child.getLabel())) {
-                                            mappings.unlink(child, childPartner);
-                                            addMapping(child, node);
+                                            mappings.removeMapping(child, childPartner);
+                                            mappings.addMapping(child, node);
                                         }
                                     }
                                 } else {
-                                    addMapping(child, node);
+                                    mappings.addMapping(child, node);
 
                                 }
                             }
                         } else {
                             if (child.getChildren().size() == 1) {
                                 child = child.getChildren().get(0);
-                                if (child.getType() == node.getType()
-                                        && child.getLabel().equals(node.getLabel())) {
-                                    ITree childPartner = mappings.getDst(child);
+                                if (child.getType() == node.getType() && child.getLabel().equals(node.getLabel())) {
+                                    ITree childPartner = mappings.getDstForSrc(child);
                                     if (childPartner != null) {
                                         if (!childPartner.getLabel().equals(node.getLabel())) {
-                                            mappings.unlink(child, childPartner);
-                                            addMapping(child, node);
-                                        } else if (mappings
-                                                .getSrc(childPartner.getParent()) == null) {
-                                            mappings.unlink(childPartner, child);
-                                            addMapping(node, child);
+                                            mappings.removeMapping(child, childPartner);
+                                            mappings.addMapping(child, node);
+                                        } else if (mappings.getSrcForDst(childPartner.getParent()) == null) {
+                                            mappings.removeMapping(childPartner, child);
+                                            mappings.addMapping(node, child);
                                         }
                                     }
                                 }
@@ -209,15 +191,14 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
                                     ITree possibleMatch = partner.getChildren().get(i);
                                     if (possibleMatch.getType() == node.getType()
                                             && possibleMatch.getLabel().equals(node.getLabel())) {
-                                        ITree possibleMatchDst = mappings.getDst(possibleMatch);
+                                        ITree possibleMatchDst = mappings.getDstForSrc(possibleMatch);
                                         if (possibleMatchDst == null) {
-                                            addMapping(possibleMatch, node);
+                                            mappings.addMapping(possibleMatch, node);
                                             break;
                                         } else {
-                                            if (!possibleMatchDst.getLabel()
-                                                    .equals(possibleMatch.getLabel())) {
-                                                mappings.unlink(possibleMatch, possibleMatchDst);
-                                                addMapping(possibleMatch, node);
+                                            if (!possibleMatchDst.getLabel().equals(possibleMatch.getLabel())) {
+                                                mappings.removeMapping(possibleMatch, possibleMatchDst);
+                                                mappings.addMapping(possibleMatch, node);
                                                 break;
                                             }
                                         }
@@ -229,21 +210,20 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
                 } else if (unmatchedNodes2.contains(parent)) {
                     ITree oldParent = parent;
                     parent = parent.getParent();
-                    if (mappings.getSrc(parent) != null) {
-                        ITree partner = mappings.getSrc(parent);
+                    if (mappings.getSrcForDst(parent) != null) {
+                        ITree partner = mappings.getSrcForDst(parent);
                         int pos = parent.getChildren().indexOf(oldParent);
                         if (pos < partner.getChildren().size()) {
                             ITree child = partner.getChildren().get(pos);
-                            if (child.getType() == node.getType()
-                                    && child.getLabel().equals(node.getLabel())) {
-                                ITree tree = mappings.getDst(child);
+                            if (child.getType() == node.getType() && child.getLabel().equals(node.getLabel())) {
+                                ITree tree = mappings.getDstForSrc(child);
                                 if (tree != null) {
                                     if (!tree.getLabel().equals(node.getLabel())) {
-                                        mappings.unlink(child, tree);
-                                        addMapping(child, node);
+                                        mappings.removeMapping(child, tree);
+                                        mappings.addMapping(child, node);
                                     }
                                 } else {
-                                    addMapping(child, node);
+                                    mappings.addMapping(child, node);
                                 }
                             }
                         }
@@ -252,4 +232,5 @@ public class UnmappedLeavesMatcherThetaC extends Matcher {
             }
         }
     }
+
 }

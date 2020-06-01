@@ -21,27 +21,21 @@
 package com.github.gumtreediff.actions.model;
 
 import com.github.gumtreediff.tree.ITree;
-import com.github.gumtreediff.tree.TreeContext;
 
 public class Delete extends Action {
-
     public Delete(ITree node) {
         super(node);
     }
 
     @Override
     public String getName() {
-        return "DEL";
+        return "delete-node";
     }
 
     @Override
     public String toString() {
-        return getName() + " " + node.toShortString();
+        return String.format("===\n%s\n---\n%s\n===",
+                getName(),
+                node.toString());
     }
-
-    @Override
-    public String format(TreeContext ctx) {
-        return getName() + " " + node.toPrettyString(ctx);
-    }
-
 }

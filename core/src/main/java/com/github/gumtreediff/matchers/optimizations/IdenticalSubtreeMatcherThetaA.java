@@ -19,32 +19,38 @@
  */
 package com.github.gumtreediff.matchers.optimizations;
 
-import com.github.gumtreediff.matchers.Mapping;
-import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.matchers.Matcher;
-import com.github.gumtreediff.tree.ITree;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.github.gumtreediff.matchers.Mapping;
+import com.github.gumtreediff.matchers.MappingStore;
+import com.github.gumtreediff.matchers.Matcher;
+import com.github.gumtreediff.tree.ITree;
+
 /**
  * This implements the identical subtree optimization Theta A.
- *
  */
 
-public class IdenticalSubtreeMatcherThetaA extends Matcher {
+public class IdenticalSubtreeMatcherThetaA implements Matcher {
 
-    public IdenticalSubtreeMatcherThetaA(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
+    private ITree src;
+    private ITree dst;
+    private MappingStore mappings;
 
+    @Override
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+        this.src = src;
+        this.dst = dst;
+        this.mappings = mappings;
+        newUnchangedMatching();
+        return mappings;
     }
 
-    @SuppressWarnings({ "checkstyle:AvoidEscapedUnicodeCharacters" })
-    private String getHash(ITree node, HashMap<ITree, Integer> quickFind,
-            HashMap<ITree, String> stringMap) {
+    @SuppressWarnings({"checkstyle:AvoidEscapedUnicodeCharacters"})
+    private String getHash(ITree node, HashMap<ITree, Integer> quickFind, HashMap<ITree, String> stringMap) {
         String tmp = node.getType() + node.getLabel();
         for (ITree child : node.getChildren()) {
             tmp += getHash(child, quickFind, stringMap);
@@ -67,16 +73,6 @@ public class IdenticalSubtreeMatcherThetaA extends Matcher {
             }
         }
         return nodes;
-    }
-
-
-    /**
-     * Match with Theta A.
-     */
-    @Override
-    public void match() {
-        newUnchangedMatching();
-
     }
 
     private void newUnchangedMatching() {
@@ -130,8 +126,8 @@ public class IdenticalSubtreeMatcherThetaA extends Matcher {
             }
         }
         for (Mapping mapping : pairs) {
-            List<ITree> stream1 = getNodeStream(mapping.getFirst());
-            List<ITree> stream2 = getNodeStream(mapping.getSecond());
+            List<ITree> stream1 = getNodeStream(mapping.first);
+            List<ITree> stream2 = getNodeStream(mapping.second);
             stream1 = new ArrayList<>(stream1);
             stream2 = new ArrayList<>(stream2);
             assert (stream1.size() == stream2.size());
@@ -140,7 +136,7 @@ public class IdenticalSubtreeMatcherThetaA extends Matcher {
                 ITree newNode = stream2.get(i);
                 assert (oldNode.getType() == newNode.getType());
                 assert (oldNode.getLabel().equals(newNode.getLabel()));
-                this.addMapping(oldNode, newNode);
+                mappings.addMapping(oldNode, newNode);
             }
         }
 

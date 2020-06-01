@@ -20,77 +20,175 @@
 
 package com.github.gumtreediff.test;
 
-import com.github.gumtreediff.actions.ActionGenerator;
+import com.github.gumtreediff.actions.*;
 import com.github.gumtreediff.actions.model.*;
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.TypeSet;
+import com.github.gumtreediff.tree.Tree;
 import com.github.gumtreediff.utils.Pair;
 import com.github.gumtreediff.tree.TreeContext;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.*;
 
 public class TestActionGenerator {
-
     @Test
     public void testWithActionExample() {
         Pair<TreeContext, TreeContext> trees = TreeLoader.getActionPair();
-        ITree src = trees.getFirst().getRoot();
-        ITree dst = trees.getSecond().getRoot();
-        MappingStore ms = new MappingStore();
-        ms.link(src, dst);
-        ms.link(src.getChild(1), dst.getChild(0));
-        ms.link(src.getChild(1).getChild(0), dst.getChild(0).getChild(0));
-        ms.link(src.getChild(1).getChild(1), dst.getChild(0).getChild(1));
-        ms.link(src.getChild(0), dst.getChild(1).getChild(0));
-        ms.link(src.getChild(0).getChild(0), dst.getChild(1).getChild(0).getChild(0));
+        ITree src = trees.first.getRoot();
+        ITree dst = trees.second.getRoot();
+        MappingStore ms = new MappingStore(src, dst);
+        ms.addMapping(src, dst);
+        ms.addMapping(src.getChild(1), dst.getChild(0));
+        ms.addMapping(src.getChild("1.0"), dst.getChild("0.0"));
+        ms.addMapping(src.getChild("1.1"), dst.getChild("0.1"));
+        ms.addMapping(src.getChild(0), dst.getChild(1).getChild(0));
+        ms.addMapping(src.getChild("0.0"), dst.getChild("1.0.0"));
+        ms.addMapping(src.getChild(4), dst.getChild(3));
+        ms.addMapping(src.getChild("4.0"), dst.getChild("3.0.0.0"));
+        EditScript actions = new SimplifiedChawatheScriptGenerator().computeActions(ms);
+        assertEquals(9, actions.size());
 
-        ActionGenerator ag = new ActionGenerator(src, dst, ms);
-        ag.generate();
-        List<Action> actions = ag.getActions();
-
-        assertEquals(4,  actions.size());
-        Action a1 = actions.get(0);
-        assertTrue(a1 instanceof Insert);
-        Insert i = (Insert) a1;
-        assertEquals("1@@h", i.getNode().toShortString());
-        assertEquals("0@@a", i.getParent().toShortString());
+        Action a = actions.get(0);
+        assertTrue(a instanceof Insert);
+        Insert i = (Insert) a;
+        assertEquals("h", i.getNode().getLabel());
+        assertEquals("a", i.getParent().getLabel());
         assertEquals(2, i.getPosition());
-        Action a2 = actions.get(1);
-        assertTrue(a2 instanceof Move);
-        Move m = (Move) a2;
-        assertEquals("0@@e", m.getNode().toShortString());
-        assertEquals("1@@h", m.getParent().toShortString());
+
+        a = actions.get(1);
+        assertTrue(a instanceof TreeInsert);
+        TreeInsert ti = (TreeInsert) a;
+        assertEquals("x", ti.getNode().getLabel());
+        assertEquals("a", ti.getParent().getLabel());
+        assertEquals(3, ti.getPosition());
+
+        a = actions.get(2);
+        assertTrue(a instanceof Move);
+        Move m = (Move) a;
+        assertEquals("e", m.getNode().getLabel());
+        assertEquals("h", m.getParent().getLabel());
         assertEquals(0, m.getPosition());
-        Action a3 = actions.get(2);
-        assertTrue(a3 instanceof Update);
-        Update u = (Update) a3;
-        assertEquals("0@@f", u.getNode().toShortString());
+
+        a = actions.get(3);
+        assertTrue(a instanceof Insert);
+        Insert i2 = (Insert) a;
+        assertEquals("u", i2.getNode().getLabel());
+        assertEquals("j", i2.getParent().getLabel());
+        assertEquals(0, i2.getPosition());
+
+        a = actions.get(4);
+        assertTrue(a instanceof Update);
+        Update u = (Update) a;
+        assertEquals("f", u.getNode().getLabel());
         assertEquals("y", u.getValue());
-        Action a4 = actions.get(3);
-        assertTrue(a4 instanceof Delete);
-        assertEquals("0@@g", a4.getNode().toShortString());
+
+        a = actions.get(5);
+        assertTrue(a instanceof Insert);
+        Insert i3 = (Insert) a;
+        assertEquals("v", i3.getNode().getLabel());
+        assertEquals("u", i3.getParent().getLabel());
+        assertEquals(0, i3.getPosition());
+
+        a = actions.get(6);
+        assertTrue(a instanceof Move);
+        Move m2 = (Move) a;
+        assertEquals("k", m2.getNode().getLabel());
+        assertEquals("v", m2.getParent().getLabel());
+        assertEquals(0, m.getPosition());
+
+        a = actions.get(7);
+        assertTrue(a instanceof TreeDelete);
+        TreeDelete td = (TreeDelete) a;
+        assertEquals("g", td.getNode().getLabel());
+
+        a = actions.get(8);
+        assertTrue(a instanceof Delete);
+        Delete d = (Delete) a;
+        assertEquals("i", d.getNode().getLabel());
+    }
+
+    @Test
+    public void testWithUnmappedRoot() {
+        ITree src = new Tree(TypeSet.type("foo"), "");
+        ITree dst = new Tree(TypeSet.type("bar"), "");
+        MappingStore ms = new MappingStore(src, dst);
+        EditScript actions = new SimplifiedChawatheScriptGenerator().computeActions(ms);
+        for (Action a : actions)
+            System.out.println(a.toString());
+    }
+
+    @Test
+    public void testWithActionExampleNoMove() {
+        Pair<TreeContext, TreeContext> trees = TreeLoader.getActionPair();
+        ITree src = trees.first.getRoot();
+        ITree dst = trees.second.getRoot();
+        MappingStore ms = new MappingStore(src, dst);
+        ms.addMapping(src, dst);
+        ms.addMapping(src.getChild(1), dst.getChild(0));
+        ms.addMapping(src.getChild(1).getChild(0), dst.getChild(0).getChild(0));
+        ms.addMapping(src.getChild(1).getChild(1), dst.getChild(0).getChild(1));
+        ms.addMapping(src.getChild(0), dst.getChild(1).getChild(0));
+        ms.addMapping(src.getChild(0).getChild(0), dst.getChild(1).getChild(0).getChild(0));
+        ms.addMapping(src.getChild(4), dst.getChild(3));
+        ms.addMapping(src.getChild(4).getChild(0), dst.getChild(3).getChild(0).getChild(0).getChild(0));
+
+        EditScript actions = new InsertDeleteChawatheScriptGenerator().computeActions(ms);
+
+        for (Action a : actions)
+            System.out.println(a.toString());
     }
 
     @Test
     public void testWithZsCustomExample() {
         Pair<TreeContext, TreeContext> trees = TreeLoader.getZsCustomPair();
-        ITree src = trees.getFirst().getRoot();
-        ITree dst = trees.getSecond().getRoot();
-        MappingStore ms = new MappingStore();
-        ms.link(src, dst.getChild(0));
-        ms.link(src.getChild(0), dst.getChild(0).getChild(0));
-        ms.link(src.getChild(1), dst.getChild(0).getChild(1));
-        ms.link(src.getChild(1).getChild(0), dst.getChild(0).getChild(1).getChild(0));
-        ms.link(src.getChild(1).getChild(2), dst.getChild(0).getChild(1).getChild(2));
+        ITree src = trees.first.getRoot();
+        ITree dst = trees.second.getRoot();
+        MappingStore ms = new MappingStore(src, dst);
+        ms.addMapping(src, dst.getChild(0));
+        ms.addMapping(src.getChild(0), dst.getChild("0.0"));
+        ms.addMapping(src.getChild(1), dst.getChild("0.1"));
+        ms.addMapping(src.getChild("1.0"), dst.getChild("0.1.0"));
+        ms.addMapping(src.getChild("1.2"), dst.getChild("0.1.2"));
+        ms.addMapping(src.getChild("1.3"), dst.getChild("0.1.3"));
 
-        ActionGenerator ag = new ActionGenerator(src, dst, ms);
-        ag.generate();
-        List<Action> actions = ag.getActions();
-        System.out.println(actions);
+        EditScript actions = new ChawatheScriptGenerator().computeActions(ms);
+        assertEquals(5, actions.size());
+        assertThat(actions, hasItems(
+                new Insert(dst, null, 0),
+                new Move(src, dst, 0),
+                new Insert(dst.getChild("0.1.1"), src.getChild("1"), 1),
+                new Update(src.getChild("1.3"), "r2"),
+                new Delete(src.getChild("1.1"))
+        ));
+
+        actions = new SimplifiedChawatheScriptGenerator().computeActions(ms);
+        assertEquals(5, actions.size());
+        assertThat(actions, hasItems(
+                new Insert(dst, null, 0),
+                new Move(src, dst, 0),
+                new Insert(dst.getChild("0.1.1"), src.getChild("1"), 1),
+                new Update(src.getChild("1.3"), "r2"),
+                new Delete(src.getChild("1.1"))
+        ));
+
+
+
+        actions = new InsertDeleteChawatheScriptGenerator().computeActions(ms);
+        assertEquals(7, actions.size());
+        assertThat(actions, hasItems(
+                new Insert(dst, null, 0),
+                new TreeDelete(src),
+                new TreeInsert(dst.getChild(0), dst, 0),
+                new Insert(dst.getChild("0.1.1"), src.getChild("1"), 1),
+                new Delete(src.getChild("1.1")),
+                new Delete(src.getChild("1.3")),
+                new Insert(dst.getChild("0.1.1"), src.getChild(1), 1)
+        ));
     }
-
 }

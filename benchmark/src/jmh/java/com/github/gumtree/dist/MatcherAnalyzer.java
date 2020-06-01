@@ -34,8 +34,8 @@ public class MatcherAnalyzer {
         public void load() {
             try {
                 String otherPath = refPath.replace("_v0_", "_v1_");
-                src = TreeIoUtils.fromXml().generateFromFile(refPath).getRoot();
-                dst = TreeIoUtils.fromXml().generateFromFile(otherPath).getRoot();
+                src = TreeIoUtils.fromXml().generateFrom().file(refPath).getRoot();
+                dst = TreeIoUtils.fromXml().generateFrom().file(otherPath).getRoot();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -51,8 +51,7 @@ public class MatcherAnalyzer {
 
     @Benchmark
     public void testClassicGumtree(TreeData d) {
-        Matcher m = new CompositeMatchers.ClassicGumtree(d.src, d.dst, new MappingStore());
-        m.match();
+        new CompositeMatchers.ClassicGumtree().match(d.src, d.dst);
     }
 
 }

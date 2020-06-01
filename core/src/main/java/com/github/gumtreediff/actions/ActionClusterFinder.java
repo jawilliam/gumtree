@@ -20,33 +20,20 @@
 package com.github.gumtreediff.actions;
 
 import com.github.gumtreediff.actions.model.*;
-import com.github.gumtreediff.tree.TreeContext;
 import org.jgrapht.DirectedGraph;
-import org.jgrapht.UndirectedGraph;
 import org.jgrapht.alg.ConnectivityInspector;
 import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
-import org.jgrapht.graph.SimpleGraph;
 
 import java.util.List;
 import java.util.Set;
 
 public class ActionClusterFinder {
-
-    private TreeContext src;
-
-    private TreeContext dst;
-
-    private List<Action> actions;
-
     private DirectedGraph<Action, DefaultEdge> graph;
 
     private List<Set<Action>> clusters;
 
-    public ActionClusterFinder(TreeContext src, TreeContext dst, List<Action> actions) {
-        this.src = src;
-        this.dst = dst;
-        this.actions = actions;
+    public ActionClusterFinder(EditScript actions) {
         graph = new DefaultDirectedGraph<>(DefaultEdge.class);
 
         for (Action a: actions)
@@ -63,7 +50,7 @@ public class ActionClusterFinder {
             }
         }
 
-        ConnectivityInspector alg = new ConnectivityInspector(graph);
+        ConnectivityInspector<Action, DefaultEdge> alg = new ConnectivityInspector<>(graph);
         clusters = alg.connectedSets();
     }
 
@@ -76,10 +63,7 @@ public class ActionClusterFinder {
             return false;
         Insert i1 = (Insert) a1;
         Insert i2 = (Insert) a2;
-        if (i2.getParent().equals(i1.getNode()))
-            return true;
-        else
-            return false;
+        return i2.getParent().equals(i1.getNode());
     }
 
     private boolean embeddedDeletes(Action a1, Action a2) {
@@ -89,10 +73,7 @@ public class ActionClusterFinder {
         Delete d2 = (Delete) a2;
         if (d2.getNode().getParent() == null)
             return false;
-        if (d2.getNode().getParent().equals(d1.getNode()))
-            return true;
-        else
-            return false;
+        return d2.getNode().getParent().equals(d1.getNode());
     }
 
     private boolean sameParentMoves(Action a1, Action a2) {
@@ -104,10 +85,7 @@ public class ActionClusterFinder {
             return false;
         if (m2.getNode() == null)
             return false;
-        if (m1.getNode().getParent().equals(m2.getNode().getParent()))
-            return true;
-        else
-            return false;
+        return m1.getNode().getParent().equals(m2.getNode().getParent());
     }
 
     private boolean sameValueUpdates(Action a1, Action a2) {
@@ -115,10 +93,7 @@ public class ActionClusterFinder {
             return false;
         Update u1 = (Update) a1;
         Update u2 = (Update) a2;
-        if (u1.getValue().equals(u2.getValue()))
-            return true;
-        else
-            return false;
+        return u1.getValue().equals(u2.getValue());
     }
 
     public String getClusterLabel(Set<Action> cluster) {
@@ -130,10 +105,10 @@ public class ActionClusterFinder {
             for (Action a : cluster)
                 if (graph.inDegreeOf(a) == 0)
                     root = (Insert) a;
-            return root.format(src);
+            return root.toString();
         } else if (first instanceof Move) {
             Move m = (Move) first;
-            return "MOVE from " + m.getParent().toPrettyString(src);
+            return "MOVE from " + m.getParent().toString();
         } else if (first instanceof Update) {
             Update u = (Update) first;
             return "UPDATE from " + first.getNode().getLabel() + " to " + u.getValue();
@@ -142,7 +117,7 @@ public class ActionClusterFinder {
             for (Action a : cluster)
                 if (graph.inDegreeOf(a) == 0)
                     root = (Delete) a;
-            return root.format(src);
+            return root.toString();
         } else
             return "Unknown cluster type";
     }

@@ -20,22 +20,19 @@
 
 package com.github.gumtreediff.matchers.optimal.rted;
 
+import java.util.ArrayDeque;
+import java.util.List;
+
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeUtils;
 
-import java.util.ArrayDeque;
-import java.util.List;
-
-public class RtedMatcher extends Matcher {
-
-    public RtedMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
-    }
+public class RtedMatcher implements Matcher {
 
     @Override
-    public void match() {
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+
         RtedAlgorithm a = new RtedAlgorithm(1D, 1D, 1D);
         a.init(src, dst);
         a.computeOptimalStrategy();
@@ -43,13 +40,16 @@ public class RtedMatcher extends Matcher {
         ArrayDeque<int[]> arrayMappings = a.computeEditMapping();
         List<ITree> srcs = TreeUtils.postOrder(src);
         List<ITree> dsts = TreeUtils.postOrder(dst);
-        for (int[] m: arrayMappings) {
+        for (int[] m : arrayMappings) {
             if (m[0] != 0 && m[1] != 0) {
-                ITree src = srcs.get(m[0] - 1);
-                ITree dst = dsts.get(m[1] - 1);
-                if (isMappingAllowed(src, dst))
-                    addMapping(src, dst);
+                ITree srcg = srcs.get(m[0] - 1);
+                ITree dstg = dsts.get(m[1] - 1);
+                if (mappings.isMappingAllowed(srcg, dstg))
+                    mappings.addMapping(srcg, dstg);
             }
         }
+
+        return mappings;
     }
+
 }

@@ -21,6 +21,8 @@ package com.github.gumtreediff.gen.css;
 
 import com.github.gumtreediff.io.LineReader;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.Type;
+import com.github.gumtreediff.tree.TypeSet;
 import com.github.gumtreediff.tree.TreeContext;
 import com.helger.css.CSSSourceLocation;
 import com.helger.css.ICSSSourceLocationAware;
@@ -28,22 +30,15 @@ import com.helger.css.ICSSWriterSettings;
 import com.helger.css.decl.*;
 import com.helger.css.decl.visit.ICSSVisitor;
 import com.helger.css.writer.CSSWriterSettings;
-import gnu.trove.map.TObjectIntMap;
-import gnu.trove.map.hash.TObjectIntHashMap;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayDeque;
-import java.util.Stack;
 
 public class GtCssVisitor implements ICSSVisitor {
-
     private TreeContext ctx;
-
     private ArrayDeque<ITree> trees;
-
     private LineReader lr;
-
     private ICSSWriterSettings settings;
 
     private CascadingStyleSheet sheet;
@@ -54,7 +49,7 @@ public class GtCssVisitor implements ICSSVisitor {
         this.sheet = sheet;
         this.ctx = new TreeContext();
         this.trees = new ArrayDeque<>();
-        ITree root = this.ctx.createTree(hashCode(sheet), "", "CascadingStyleSheet");
+        ITree root = this.ctx.createTree(symbol(sheet), ITree.NO_LABEL);
         setLocation(root, sheet);
         this.ctx.setRoot(root);
         this.trees.push(root);
@@ -73,34 +68,31 @@ public class GtCssVisitor implements ICSSVisitor {
         t.setLength(length);
     }
 
-    private int hashCode(ICSSSourceLocationAware a) {
-        return a.getClass().getName().hashCode();
+    private Type symbol(ICSSSourceLocationAware a) {
+        return TypeSet.type(a.getClass().getName());
     }
 
     @Override
-    public void begin() {
-    }
+    public void begin() {}
 
     @Override
     public void onImport(@Nonnull CSSImportRule i) {
         //TODO add media nodes
-        ITree t = ctx.createTree(hashCode(i), i.getAsCSSString(settings, 0), "CSSImportRule");
+        ITree t = ctx.createTree(symbol(i), i.getAsCSSString(settings, 0));
         t.setParentAndUpdateChildren(trees.peekFirst());
         setLocation(t, i);
     }
 
     @Override
-    public void onNamespace(@Nonnull CSSNamespaceRule n) {
-
-    }
+    public void onNamespace(@Nonnull CSSNamespaceRule n) {}
 
     @Override
     public void onDeclaration(@Nonnull CSSDeclaration d) {
-        ITree t = ctx.createTree(hashCode(d), d.getProperty(), "CSSDeclaration");
+        ITree t = ctx.createTree(symbol(d), d.getProperty());
         t.setParentAndUpdateChildren(trees.peekFirst());
         setLocation(t, d);
         CSSExpression e = d.getExpression();
-        ITree c = ctx.createTree(hashCode(e), e.getAsCSSString(settings, 0), "CSSExpression");
+        ITree c = ctx.createTree(symbol(e), e.getAsCSSString(settings, 0));
         c.setParentAndUpdateChildren(t);
         setLocation(c, e);
         //TODO handle expression members.
@@ -115,7 +107,7 @@ public class GtCssVisitor implements ICSSVisitor {
 
     @Override
     public void onBeginStyleRule(@Nonnull CSSStyleRule s) {
-        ITree t = ctx.createTree(hashCode(s), "", "CSSStyleRule");
+        ITree t = ctx.createTree(symbol(s), "");
         setLocation(t, s);
         t.setParentAndUpdateChildren(trees.peekFirst());
         trees.addFirst(t);
@@ -123,7 +115,7 @@ public class GtCssVisitor implements ICSSVisitor {
 
     @Override
     public void onStyleRuleSelector(@Nonnull CSSSelector s) {
-        ITree t = ctx.createTree(hashCode(s), s.getAsCSSString(settings, 0), "CSSSelector");
+        ITree t = ctx.createTree(symbol(s), s.getAsCSSString(settings, 0));
         t.setParentAndUpdateChildren(trees.peekFirst());
         setLocation(t, s);
     }
@@ -134,92 +126,56 @@ public class GtCssVisitor implements ICSSVisitor {
     }
 
     @Override
-    public void onBeginPageRule(@Nonnull CSSPageRule aPageRule) {
-
-    }
+    public void onBeginPageRule(@Nonnull CSSPageRule aPageRule) {}
 
     @Override
-    public void onBeginPageMarginBlock(@Nonnull CSSPageMarginBlock aPageMarginBlock) {
-
-    }
+    public void onBeginPageMarginBlock(@Nonnull CSSPageMarginBlock aPageMarginBlock) {}
 
     @Override
-    public void onEndPageMarginBlock(@Nonnull CSSPageMarginBlock aPageMarginBlock) {
-
-    }
+    public void onEndPageMarginBlock(@Nonnull CSSPageMarginBlock aPageMarginBlock) {}
 
     @Override
-    public void onEndPageRule(@Nonnull CSSPageRule aPageRule) {
-
-    }
+    public void onEndPageRule(@Nonnull CSSPageRule aPageRule) {}
 
     @Override
-    public void onBeginFontFaceRule(@Nonnull CSSFontFaceRule aFontFaceRule) {
-
-    }
+    public void onBeginFontFaceRule(@Nonnull CSSFontFaceRule aFontFaceRule) {}
 
     @Override
-    public void onEndFontFaceRule(@Nonnull CSSFontFaceRule aFontFaceRule) {
-
-    }
+    public void onEndFontFaceRule(@Nonnull CSSFontFaceRule aFontFaceRule) {}
 
     @Override
-    public void onBeginMediaRule(@Nonnull CSSMediaRule aMediaRule) {
-
-    }
+    public void onBeginMediaRule(@Nonnull CSSMediaRule aMediaRule) {}
 
     @Override
-    public void onEndMediaRule(@Nonnull CSSMediaRule aMediaRule) {
-
-    }
+    public void onEndMediaRule(@Nonnull CSSMediaRule aMediaRule) {}
 
     @Override
-    public void onBeginKeyframesRule(@Nonnull CSSKeyframesRule aKeyframesRule) {
-
-    }
+    public void onBeginKeyframesRule(@Nonnull CSSKeyframesRule aKeyframesRule) {}
 
     @Override
-    public void onBeginKeyframesBlock(@Nonnull CSSKeyframesBlock aKeyframesBlock) {
-
-    }
+    public void onBeginKeyframesBlock(@Nonnull CSSKeyframesBlock aKeyframesBlock) {}
 
     @Override
-    public void onEndKeyframesBlock(@Nonnull CSSKeyframesBlock aKeyframesBlock) {
-
-    }
+    public void onEndKeyframesBlock(@Nonnull CSSKeyframesBlock aKeyframesBlock) {}
 
     @Override
-    public void onEndKeyframesRule(@Nonnull CSSKeyframesRule aKeyframesRule) {
-
-    }
+    public void onEndKeyframesRule(@Nonnull CSSKeyframesRule aKeyframesRule) {}
 
     @Override
-    public void onBeginViewportRule(@Nonnull CSSViewportRule aViewportRule) {
-
-    }
+    public void onBeginViewportRule(@Nonnull CSSViewportRule aViewportRule) {}
 
     @Override
-    public void onEndViewportRule(@Nonnull CSSViewportRule aViewportRule) {
-
-    }
+    public void onEndViewportRule(@Nonnull CSSViewportRule aViewportRule) {}
 
     @Override
-    public void onBeginSupportsRule(@Nonnull CSSSupportsRule aSupportsRule) {
-
-    }
+    public void onBeginSupportsRule(@Nonnull CSSSupportsRule aSupportsRule) {}
 
     @Override
-    public void onEndSupportsRule(@Nonnull CSSSupportsRule aSupportsRule) {
-
-    }
+    public void onEndSupportsRule(@Nonnull CSSSupportsRule aSupportsRule) {}
 
     @Override
-    public void onUnknownRule(@Nonnull CSSUnknownRule aUnknownRule) {
-
-    }
+    public void onUnknownRule(@Nonnull CSSUnknownRule aUnknownRule) {}
 
     @Override
-    public void end() {
-
-    }
+    public void end() {}
 }

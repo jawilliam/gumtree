@@ -1,43 +1,43 @@
-FROM ubuntu:xenial
+FROM debian:buster-slim
 
-# installs all required packages
-RUN apt-get update \
-	&& apt-get install -y software-properties-common python-software-properties \
-	&& echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections \
-	&& add-apt-repository ppa:webupd8team/java -y \
-	&& apt-get update \
-	&& apt-get install -y oracle-java8-installer oracle-java8-set-default libarchive13 libcurl3 ocaml ocaml-native-compilers camlp4 git build-essential zip python-pip\
-	&& wget http://131.123.42.38/lmcrs/beta/srcML-Ubuntu14.04-64.deb \
-	&& dpkg -i srcML-Ubuntu14.04-64.deb \
+# Install all required packages
+# Start with a fix to get the openjdk-11-jdk package to be installed on buster
+RUN mkdir /usr/share/man/man1/ \
+    && apt-get update \
+	&& apt-get install -y --no-install-recommends openjdk-11-jdk wget git gdebi-core \
+	    ocaml ocaml-native-compilers camlp4 build-essential m4 zip python-pip \
+	    ca-certificates p11-kit
+
+# Set locale
+ENV LANG C.UTF-8
+
+# Install srcML
+RUN wget http://131.123.42.38/lmcrs/v1.0.0/srcml_1.0.0-1_ubuntu18.04.deb \
+	&& gdebi srcml_1.0.0-1_ubuntu18.04.deb -n \
 	&& pip install jsontree asttokens
 
-# install cgum
 WORKDIR /opt
-RUN git clone https://github.com/GumTreeDiff/cgum.git --depth 1
-WORKDIR /opt/cgum
-RUN make \
+
+# Install cgum
+RUN git clone https://github.com/GumTreeDiff/cgum.git --depth 1 \
+    && make -C /opt/cgum \
 	&& ln -s /opt/cgum/cgum /usr/bin/cgum
 
-# install pythonparser
-WORKDIR /opt
-RUN git clone https://github.com/GumTreeDiff/pythonparser.git --depth 1
-WORKDIR /opt/pythonparser
-RUN ln -s /opt/pythonparser/pythonparser /usr/bin/pythonparser
+# Install pythonparser
+RUN git clone https://github.com/GumTreeDiff/pythonparser.git --depth 1 \
+    && ln -s /opt/pythonparser/pythonparser /usr/bin/pythonparser
 
-# install gumtree
-WORKDIR /opt
-RUN git clone -b develop https://github.com/GumTreeDiff/gumtree.git --depth 1
-WORKDIR /opt/gumtree
-RUN ./gradlew build -x check \
-	&& unzip dist/build/distributions/gumtree.zip \
-	&& ln -s /opt/gumtree/gumtree/bin/gumtree /usr/bin/gumtree
+# Install gumtree
+COPY . /opt/gumtree
+RUN /opt/gumtree/gradlew -p /opt/gumtree build \
+	&& ln -s /opt/gumtree/dist/build/install/gumtree/bin/gumtree /usr/bin/gumtree
 
-# define volume diff to make available files to diff
-RUN mkdir /diff
+# Define volume diff to make available files to diff
+RUN mkdir -p /diff/left /diff/right
 WORKDIR /diff
-VOLUME /diff
+VOLUME /diff/left /diff/right
 
-# expose port 4567 for webdiff
+# Expose port 4567 for webdiff
 EXPOSE 4567
 
 ENTRYPOINT ["gumtree"]

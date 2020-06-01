@@ -22,8 +22,10 @@ package com.github.gumtreediff.gen.ruby;
 
 import com.github.gumtreediff.gen.Register;
 import com.github.gumtreediff.gen.Registry;
+import com.github.gumtreediff.gen.SyntaxException;
 import com.github.gumtreediff.gen.TreeGenerator;
 import com.github.gumtreediff.tree.ITree;
+import com.github.gumtreediff.tree.Type;
 import com.github.gumtreediff.tree.TreeContext;
 import org.jrubyparser.CompatVersion;
 import org.jrubyparser.Parser;
@@ -33,6 +35,8 @@ import org.jrubyparser.parser.ParserConfiguration;
 import java.io.IOException;
 import java.io.Reader;
 
+import static com.github.gumtreediff.tree.TypeSet.type;
+
 @Register(id = "ruby-jruby", accept = {"\\.ruby$", "\\.rb$"}, priority = Registry.Priority.MAXIMUM)
 public class RubyTreeGenerator extends TreeGenerator {
 
@@ -41,15 +45,22 @@ public class RubyTreeGenerator extends TreeGenerator {
         Parser p = new Parser();
         CompatVersion version = CompatVersion.RUBY2_0;
         ParserConfiguration config = new ParserConfiguration(0, version);
-        Node n = p.parse("<code>", r, config);
-        return extractTreeContext(new TreeContext(), n, null);
+        try {
+            Node n = p.parse("<code>", r, config);
+            return extractTreeContext(new TreeContext(), n, null);
+        }
+        catch (org.jrubyparser.lexer.SyntaxException e) {
+            throw new SyntaxException(
+                    String.format("Syntax exception: %s at %s", e.getMessage(), e.getPosition()),
+                    e
+            );
+        }
     }
 
     private TreeContext extractTreeContext(TreeContext treeContext, Node node, ITree parent) {
-        String typeLabel = node.getNodeType().name();
-        int type = node.getNodeType().ordinal() + 1;
+        Type type = type(node.getNodeType().name());
         String label = extractLabel(node);
-        ITree tree = treeContext.createTree(type, label, typeLabel);
+        ITree tree = treeContext.createTree(type, label);
         if (parent == null)
             treeContext.setRoot(tree);
         else

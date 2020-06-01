@@ -20,37 +20,45 @@
 
 package com.github.gumtreediff.gen.js;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 
-import org.junit.Test;
+import com.github.gumtreediff.gen.SyntaxException;
+import com.github.gumtreediff.tree.TreeContext;
 
 import com.github.gumtreediff.tree.ITree;
 
 public class TestJsGenerator {
-
     @Test
     public void testStatement() throws IOException {
         String input = "console.log(\"Hello world!\");";
-        ITree tree = new RhinoTreeGenerator().generateFromString(input).getRoot();
-        assertEquals(7, tree.getSize());
+        ITree tree = new RhinoTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(7, tree.getMetrics().size);
+    }
+
+    @Test
+    public void testLambda() throws IOException {
+        String input = "let f = (foo, bar) => foo + bar;";
+        ITree tree = new RhinoTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(12, tree.getMetrics().size);
     }
 
     @Test
     public void testComment() throws IOException {
         String input = "console.log(\"Hello world!\"); /* with comment */";
-        ITree tree = new RhinoTreeGenerator().generateFromString(input).getRoot();
-        assertEquals(8, tree.getSize());
+        ITree tree = new RhinoTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(8, tree.getMetrics().size);
     }
 
     @Test
-    public void testComplexFile() throws IOException {
-        Reader r = new InputStreamReader(getClass().getResourceAsStream("/sample.js"), "UTF-8");
-        ITree tree = new RhinoTreeGenerator().generateFromReader(r).getRoot();
-        assertEquals(402, tree.getSize());
+    public void badSyntax() {
+        String input = "function foo((bar) {}";
+        assertThrows(SyntaxException.class, () -> {
+            new RhinoTreeGenerator().generateFrom().string(input);
+        });
     }
-
 }

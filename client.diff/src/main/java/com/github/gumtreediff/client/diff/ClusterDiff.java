@@ -20,12 +20,11 @@
 package com.github.gumtreediff.client.diff;
 
 import com.github.gumtreediff.actions.ActionClusterFinder;
-import com.github.gumtreediff.actions.ActionGenerator;
+import com.github.gumtreediff.actions.Diff;
 import com.github.gumtreediff.actions.model.Action;
 import com.github.gumtreediff.client.Register;
-import com.github.gumtreediff.matchers.Matcher;
 
-import java.util.List;
+import java.io.IOException;
 import java.util.Set;
 
 @Register(name = "cluster", description = "Extract action clusters",
@@ -37,20 +36,16 @@ public class ClusterDiff extends AbstractDiffClient<AbstractDiffClient.Options> 
     }
 
     @Override
-    public void run() {
-        Matcher m = matchTrees();
-        ActionGenerator g = new ActionGenerator(getSrcTreeContext().getRoot(),
-                getDstTreeContext().getRoot(), m.getMappings());
-        g.generate();
-        List<Action> actions = g.getActions();
-        ActionClusterFinder f = new ActionClusterFinder(getSrcTreeContext(), getDstTreeContext(), actions);
+    public void run() throws IOException {
+        Diff diff = getDiff();
+        ActionClusterFinder f = new ActionClusterFinder(diff.editScript);
         for (Set<Action> cluster: f.getClusters()) {
             System.out.println("New cluster:");
             System.out.println(f.getClusterLabel(cluster));
             System.out.println("------------");
             for (Action a: cluster)
-                System.out.println(a.format(getSrcTreeContext()));
-            System.out.println("");
+                System.out.println(a.toString());
+            System.out.println();
         }
     }
 

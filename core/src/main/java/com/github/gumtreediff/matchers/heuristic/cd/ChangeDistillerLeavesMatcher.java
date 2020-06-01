@@ -20,34 +20,54 @@
 
 package com.github.gumtreediff.matchers.heuristic.cd;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
+import org.simmetrics.StringMetrics;
+
+import com.github.gumtreediff.matchers.Configurable;
+import com.github.gumtreediff.matchers.ConfigurationOptions;
+import com.github.gumtreediff.matchers.GumTreeProperties;
 import com.github.gumtreediff.matchers.Mapping;
 import com.github.gumtreediff.matchers.MappingStore;
 import com.github.gumtreediff.matchers.Matcher;
 import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeUtils;
-import org.simmetrics.StringMetrics;
+import com.google.common.collect.Sets;
 
-import java.util.*;
+public class ChangeDistillerLeavesMatcher implements Matcher, Configurable {
 
-public class ChangeDistillerLeavesMatcher extends Matcher {
+    private static final double DEFAULT_LABEL_SIM_THRESHOLD = 0.5;
 
-    public static final double LABEL_SIM_THRESHOLD = Double.parseDouble(System.getProperty("gt.cd.lsim", "0.5"));
+    protected double label_sim_threshold = DEFAULT_LABEL_SIM_THRESHOLD;
 
-    public ChangeDistillerLeavesMatcher(ITree src, ITree dst, MappingStore store) {
-        super(src, dst, store);
+    public ChangeDistillerLeavesMatcher() {
+
     }
 
     @Override
-    public void match() {
+    public void configure(GumTreeProperties properties) {
+        label_sim_threshold = properties.tryConfigure(ConfigurationOptions.GT_CD_LSIM, label_sim_threshold);
+
+    }
+
+    @Override
+    public MappingStore match(ITree src, ITree dst, MappingStore mappings) {
+
         List<Mapping> leavesMappings = new ArrayList<>();
         List<ITree> dstLeaves = retainLeaves(TreeUtils.postOrder(dst));
-        for (Iterator<ITree> srcLeaves = TreeUtils.leafIterator(
-                TreeUtils.postOrderIterator(src)); srcLeaves.hasNext();) {
+        for (Iterator<ITree> srcLeaves = TreeUtils.leafIterator(TreeUtils.postOrderIterator(src)); srcLeaves
+                .hasNext(); ) {
             ITree srcLeaf = srcLeaves.next();
-            for (ITree dstLeaf: dstLeaves) {
-                if (isMappingAllowed(srcLeaf, dstLeaf)) {
+            for (ITree dstLeaf : dstLeaves) {
+                if (mappings.isMappingAllowed(srcLeaf, dstLeaf)) {
                     double sim = StringMetrics.qGramsDistance().compare(srcLeaf.getLabel(), dstLeaf.getLabel());
-                    if (sim > LABEL_SIM_THRESHOLD)
+                    if (sim > label_sim_threshold)
                         leavesMappings.add(new Mapping(srcLeaf, dstLeaf));
                 }
             }
@@ -58,13 +78,13 @@ public class ChangeDistillerLeavesMatcher extends Matcher {
         Collections.sort(leavesMappings, new LeafMappingComparator());
         while (leavesMappings.size() > 0) {
             Mapping bestMapping = leavesMappings.remove(0);
-            if (!(ignoredSrcTrees.contains(bestMapping.getFirst())
-                    || ignoredDstTrees.contains(bestMapping.getSecond()))) {
-                addMapping(bestMapping.getFirst(),bestMapping.getSecond());
-                ignoredSrcTrees.add(bestMapping.getFirst());
-                ignoredDstTrees.add(bestMapping.getSecond());
+            if (!(ignoredSrcTrees.contains(bestMapping.first) || ignoredDstTrees.contains(bestMapping.second))) {
+                mappings.addMapping(bestMapping.first, bestMapping.second);
+                ignoredSrcTrees.add(bestMapping.first);
+                ignoredDstTrees.add(bestMapping.second);
             }
         }
+        return mappings;
     }
 
     public List<ITree> retainLeaves(List<ITree> trees) {
@@ -85,8 +105,21 @@ public class ChangeDistillerLeavesMatcher extends Matcher {
         }
 
         public double sim(Mapping m) {
-            return StringMetrics.qGramsDistance().compare(m.getFirst().getLabel(), m.getSecond().getLabel());
+            return StringMetrics.qGramsDistance().compare(m.first.getLabel(), m.second.getLabel());
         }
+    }
 
+    public double getLabel_sim_threshold() {
+        return label_sim_threshold;
+    }
+
+    public void setLabel_sim_threshold(double labelSimThreshold) {
+        this.label_sim_threshold = labelSimThreshold;
+    }
+
+    @Override
+    public Set<ConfigurationOptions> getApplicableOptions() {
+
+        return Sets.newHashSet(ConfigurationOptions.GT_CD_LSIM);
     }
 }

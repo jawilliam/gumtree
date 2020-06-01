@@ -21,21 +21,32 @@
 package com.github.gumtreediff.gen.antlr3.r;
 
 import java.io.IOException;
+import java.util.stream.Stream;
 
 import com.github.gumtreediff.tree.ITree;
-import org.junit.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-import com.github.gumtreediff.tree.ITree;
-import static org.junit.Assert.*;
+import static com.github.gumtreediff.tree.TypeSet.type;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 public class TestRGenerator {
 
-    @Test
-    public void testSimpleSyntax() throws IOException {
-        String input = "v <- c(1,2,3);";
-        ITree t = new RTreeGenerator().generateFromString(input).getRoot();
-        assertEquals(67, t.getType());
-        assertEquals(8, t.getSize());
+    public static final String SEQUENCE = RParser.tokenNames[RParser.SEQUENCE];
+
+    static Stream<Arguments> provideStringAndExpectedLength() {
+        return Stream.of(
+                arguments("v <- c(1,2,3);", SEQUENCE, 8)
+        );
     }
 
+    @ParameterizedTest
+    @MethodSource("provideStringAndExpectedLength")
+    public void testSimpleParse(String input, String expectedRootType, int expectedSize) throws IOException {
+        ITree t = new RTreeGenerator().generateFrom().string(input).getRoot();
+        assertEquals(type(expectedRootType), t.getType());
+        assertEquals(expectedSize, t.getMetrics().size);
+    }
 }

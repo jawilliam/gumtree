@@ -20,7 +20,7 @@
 
 package com.github.gumtreediff.client;
 
-import com.github.gumtreediff.gen.Generators;
+import com.github.gumtreediff.gen.TreeGenerators;
 import com.github.gumtreediff.gen.Registry;
 import com.github.gumtreediff.gen.TreeGenerator;
 import org.atteo.classindex.ClassIndex;
@@ -55,7 +55,7 @@ public class Run {
                     com.github.gumtreediff.gen.Register a =
                             gen.getAnnotation(com.github.gumtreediff.gen.Register.class);
                     if (a != null)
-                        Generators.getInstance().install(gen, a);
+                        TreeGenerators.getInstance().install(gen, a);
                 });
     }
 
@@ -75,16 +75,18 @@ public class Run {
 
     public static void startClient(String name, Registry.Factory<? extends Client> client, String[] args) {
         try {
-            Client inst = client.newInstance(new Object[]{args});
+            Client inst = client.newInstance(new Object[]{ args });
             try {
                 inst.run();
             } catch (Exception e) {
-                System.err.printf("** Error while running client %s: %s\n", name, e);
+                System.err.printf("Error while running client '%s'.\n", name);
+                e.printStackTrace();
             }
         } catch (InvocationTargetException e) {
-            System.err.printf("** Error while parsing option for %s:\n%s\n", name, e.getCause());
+            System.err.printf("Error while parsing arguments of client '%s'.\n", name);
+            e.printStackTrace();
         } catch (InstantiationException | IllegalAccessException e) {
-            System.err.printf("Can't instantiate client: '%s'\n%s\n", name, e);
+            System.err.printf("Can't instantiate client '%s'.", name);
             e.printStackTrace();
         }
     }
@@ -97,10 +99,10 @@ public class Run {
 
         Registry.Factory<? extends Client> client;
         if (args.length == 0) {
-            System.err.println("** No command given.");
+            System.err.println("No command given.");
             displayHelp(System.err, opts);
         } else if ((client = Clients.getInstance().getFactory(args[0])) == null) {
-            System.err.printf("** Unknown sub-command '%s'.\n", args[0]);
+            System.err.printf("Unknown sub-command '%s'.\n", args[0]);
             displayHelp(System.err, opts);
         } else {
             String[] a = new String[args.length - 1];
@@ -112,7 +114,7 @@ public class Run {
     public static void displayHelp(PrintStream out, Option.Context ctx) {
         out.println("Available Options:");
         Option.displayOptions(out, ctx);
-        out.println("");
+        out.println();
         listCommand(out);
     }
 

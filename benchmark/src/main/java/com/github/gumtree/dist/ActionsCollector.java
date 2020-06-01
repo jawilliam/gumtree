@@ -19,15 +19,14 @@
 
 package com.github.gumtree.dist;
 
-import com.github.gumtreediff.actions.ActionGenerator;
+import com.github.gumtreediff.actions.ChawatheScriptGenerator;
+import com.github.gumtreediff.actions.EditScript;
 import com.github.gumtreediff.actions.model.Action;
 import com.github.gumtreediff.client.Run;
-import com.github.gumtreediff.gen.Generators;
 import com.github.gumtreediff.io.ActionsIoUtils;
 import com.github.gumtreediff.io.TreeIoUtils;
 import com.github.gumtreediff.matchers.CompositeMatchers;
 import com.github.gumtreediff.matchers.MappingStore;
-import com.github.gumtreediff.tree.ITree;
 import com.github.gumtreediff.tree.TreeContext;
 
 import java.io.*;
@@ -73,16 +72,13 @@ public class ActionsCollector {
         for (Path path : outputPaths) {
             Path otherPath = Paths.get(path.toString().replace("_v0_","_v1_"));
             Path outputPath = Paths.get(path.toString().replace("_v0_","_actions_"));
-            TreeContext src = TreeIoUtils.fromXml().generateFromFile(path.toString());
-            TreeContext dst = TreeIoUtils.fromXml().generateFromFile(otherPath.toString());
-            CompositeMatchers.ClassicGumtree matcher = new CompositeMatchers.ClassicGumtree(
-                    src.getRoot(), dst.getRoot(), new MappingStore());
-            matcher.match();
-            ActionGenerator g = new ActionGenerator(src.getRoot(), dst.getRoot(), matcher.getMappings());
-            List<Action> actions = g.generate();
+            TreeContext src = TreeIoUtils.fromXml().generateFrom().file(path.toString());
+            TreeContext dst = TreeIoUtils.fromXml().generateFrom().file(otherPath.toString());
+            MappingStore mappings = new CompositeMatchers.ClassicGumtree().match(src.getRoot(), dst.getRoot());
+            EditScript actions = new ChawatheScriptGenerator().computeActions(mappings);
 
             String res = Paths.get(OUTPUT_DIR, outputPath.getFileName().toString()).toString();
-            ActionsIoUtils.toText(src, actions, matcher.getMappings()).writeTo(new FileWriter(res));
+            ActionsIoUtils.toText(src, actions, mappings).writeTo(new FileWriter(res));
         }
     }
 
@@ -97,15 +93,12 @@ public class ActionsCollector {
         StringBuilder b = new StringBuilder();
         for (Path path : outputPaths) {
             Path otherPath = Paths.get(path.toString().replace("_v0_","_v1_"));
-            TreeContext src = TreeIoUtils.fromXml().generateFromFile(path.toString());
-            TreeContext dst = TreeIoUtils.fromXml().generateFromFile(otherPath.toString());
-            CompositeMatchers.ClassicGumtree matcher = new CompositeMatchers.ClassicGumtree(
-                    src.getRoot(), dst.getRoot(), new MappingStore());
-            matcher.match();
-            ActionGenerator g = new ActionGenerator(src.getRoot(), dst.getRoot(), matcher.getMappings());
-            List<Action> actions = g.generate();
+            TreeContext src = TreeIoUtils.fromXml().generateFrom().file(path.toString());
+            TreeContext dst = TreeIoUtils.fromXml().generateFrom().file(otherPath.toString());
+            MappingStore mappings = new CompositeMatchers.ClassicGumtree().match(src.getRoot(), dst.getRoot());
+            EditScript actions = new ChawatheScriptGenerator().computeActions(mappings);
             StringWriter w = new StringWriter();
-            ActionsIoUtils.toText(src, actions, matcher.getMappings()).writeTo(w);
+            ActionsIoUtils.toText(src, actions, mappings).writeTo(w);
             Path refPath = Paths.get(path.toString().replace("_v0_","_actions_"));
             String ref = Paths.get(REF_DIR, refPath.getFileName().toString()).toString();
             if (!contentEquals(new StringReader(w.toString()), new FileReader(ref))) {
